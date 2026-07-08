@@ -9,6 +9,7 @@
   --secondary: #a1a1aa;
   --tertiary: #6b6b73;
   --accent: #0a84ff;
+  --destructive: #ff453a;
   --reading: #ff9f0a;
   --read: #30d158;
   --want: #5e5ce6;
@@ -24,6 +25,7 @@
     --secondary: #6b6b73;
     --tertiary: #a1a1aa;
     --accent: #007aff;
+    --destructive: #ff3b30;
     --reading: #f59e0b;
     --read: #28a745;
     --want: #5856d6;
@@ -39,6 +41,7 @@
   --color-secondary: var(--secondary);
   --color-tertiary: var(--tertiary);
   --color-accent: var(--accent);
+  --color-destructive: var(--destructive);
   --color-reading: var(--reading);
   --color-read: var(--read);
   --color-want: var(--want);
