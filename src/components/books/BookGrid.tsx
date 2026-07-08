@@ -34,7 +34,7 @@ export function BookGrid({ entries, emptyTitle, emptyDescription, addHref }: Boo
       {entries.map((entry) => (
         <BookCard
           key={entry.userBookId}
-          id={entry.book.id}
+          id={entry.userBookId}
           title={entry.book.title}
           authors={entry.book.authors}
           thumbnail={entry.book.thumbnail}

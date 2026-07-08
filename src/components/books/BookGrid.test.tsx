@@ -91,7 +91,7 @@ describe("BookGrid", () => {
 
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((link) => link.getAttribute("href"));
-    expect(hrefs).toContain("/books/book-1");
-    expect(hrefs).toContain("/books/book-2");
+    expect(hrefs).toContain("/books/user-book-1");
+    expect(hrefs).toContain("/books/user-book-2");
   });
 });
