@@ -15,7 +15,7 @@ Repository: `frnic0las/booktracker` — License: AGPL-3.0
 - **ORM**: Drizzle ORM with `@libsql/client`
 - **Auth**: Auth.js v5 (NextAuth) with credentials provider
 - **External API**: Google Books API v1
-- **Styling**: Tailwind CSS — iOS-native aesthetic, mobile-only (375–430px)
+- **Styling**: Tailwind CSS v4 — config in `src/app/globals.css` via `@theme` (no `tailwind.config.ts`). iOS-native aesthetic, mobile-only (375–430px)
 - **Package manager**: pnpm
 - **Deployment**: Vercel
 - **Node**: latest LTS
@@ -107,12 +107,20 @@ booktracker/
 │   │   ├── google-books/ # Google Books client, types, helpers
 │   │   └── utils.ts
 │   ├── actions/          # Server Actions (add book, update status, manage lists)
-│   └── types/            # Shared TypeScript interfaces
+│   ├── types/            # Shared TypeScript interfaces
+│   │   └── next-auth.d.ts
+│   └── test/
+│       ├── mocks/
+│       │   ├── handlers.ts
+│       │   └── server.ts
+│       └── setup.ts
 ├── docs/
 │   ├── DESIGN_SYSTEM.md
 │   ├── ARCHITECTURE.md
 │   └── DATABASE.md
 ├── drizzle/              # Generated migrations
+├── scripts/
+│   └── seed.ts
 ├── public/
 │   ├── manifest.json
 │   └── icons/
@@ -121,9 +129,12 @@ booktracker/
 ├── .gitignore
 ├── .env.local.example
 ├── drizzle.config.ts
+├── eslint.config.mjs
 ├── next.config.ts
-├── tailwind.config.ts
+├── pnpm-workspace.yaml
+├── postcss.config.mjs
 ├── tsconfig.json
+├── vitest.config.ts
 └── package.json
 ```
 
@@ -166,6 +177,7 @@ VERCEL_EMAIL=                   # Must match git config user.email
 - **DB generate migration**: `pnpm db:generate`
 - **DB push migration**: `pnpm db:push`
 - **DB studio**: `pnpm db:studio`
+- **DB seed**: `pnpm db:seed`
 - **Local DB**: `turso dev --db-file local.db`
 - **Deploy prod**: `./push-prod.sh` (reads `.env.local.prod`)
 
