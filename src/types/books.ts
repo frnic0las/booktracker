@@ -21,7 +21,6 @@ export interface UserBook {
   bookId: string;
   status: ReadingStatus;
   category: BookCategory;
-  currentPage: number | null;
   rating: number | null;
   notes: string | null;
   startedAt: Date | null;
@@ -41,7 +40,6 @@ export interface LibraryEntry {
   userBookId: string;
   status: ReadingStatus;
   category: BookCategory;
-  currentPage: number | null;
   rating: number | null;
   startedAt: Date | null;
   finishedAt: Date | null;

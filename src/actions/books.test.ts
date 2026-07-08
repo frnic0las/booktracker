@@ -113,7 +113,6 @@ function buildUserBookRow(overrides: Partial<UserBookRow> = {}): UserBookRow {
     bookId: "book-1",
     status: "want_to_read",
     category: "novel",
-    currentPage: null,
     rating: null,
     notes: null,
     startedAt: null,
