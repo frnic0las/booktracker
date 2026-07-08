@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #9 · Search, detail &amp; account</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Identical to issue #8 mockup; maps 1:1 to Tailwind @theme.
+         ============================================================ */
+      :root {
+        /* Surfaces */
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        /* Text */
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        /* Accent */
+        --accent: #0a84ff;
+        --accent-pressed: #0060df;
+
+        /* Status hues */
+        --reading: #ff9f0a;
+        --read: #30d158;
+        --want: #5e5ce6;
+
+        /* Radii */
+        --r-card: 12px;
+        --r-control: 10px;
+        --r-pill: 999px;
+
+        /* Layout */
+        --safe-bottom: 34px;
+        --nav-height: 56px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #050506;
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 24px 80px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .page-title {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+      .page-title h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+      .page-title p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+
+      /* ---------- Device frame (390 × 750) ---------- */
+      .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .frame-label {
+        font-size: 13px; font-weight: 600; color: var(--text-secondary);
+        letter-spacing: 0.01em;
+      }
+      .device {
+        width: 390px;
+        height: 750px;
+        background: var(--bg);
+        border-radius: 44px;
+        border: 10px solid #1c1c1f;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Status bar (iOS) */
+      .statusbar {
+        height: 50px;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 26px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .statusbar .glyphs { display: flex; gap: 6px; align-items: center; }
+      .statusbar svg { display: block; }
+
+      /* ---------- Modal header (Search) ---------- */
+      .modal-bar {
+        flex: 0 0 auto;
+        padding: 2px 16px 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .search-field {
+        flex: 1 1 auto;
+        display: flex; align-items: center; gap: 8px;
+        background: var(--surface-1);
+        border-radius: var(--r-control);
+        padding: 9px 12px;
+        color: var(--text-secondary);
+      }
+      .search-field.focused {
+        outline: 2px solid var(--accent);
+        outline-offset: 0;
+      }
+      .search-field input {
+        flex: 1 1 auto;
+        border: none; background: transparent; outline: none;
+        color: var(--text-primary);
+        font-size: 16px;
+      }
+      .search-field .caret {
+        width: 2px; height: 18px; background: var(--accent);
+        border-radius: 1px;
+      }
+      .search-field .placeholder { font-size: 16px; color: var(--text-tertiary); }
+      .cancel-btn {
+        flex: 0 0 auto; border: none; background: transparent;
+        color: var(--accent); font-size: 16px; font-weight: 400;
+        white-space: nowrap;
+      }
+
+      /* ---------- Search results list ---------- */
+      .scroll { flex: 1 1 auto; overflow-y: auto; }
+      .result-list { padding: 0 16px 16px; }
+      .result-row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--separator);
+      }
+      .result-row:last-child { border-bottom: none; }
+      .thumb {
+        flex: 0 0 auto;
+        width: 44px; aspect-ratio: 2 / 3;
+        border-radius: 6px; overflow: hidden;
+        background: var(--surface-2);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      }
+      .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .thumb.fallback {
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(150deg, var(--surface-2), var(--surface-1));
+        border: 1px solid var(--separator);
+        color: var(--text-tertiary);
+      }
+      .result-meta { flex: 1 1 auto; min-width: 0; }
+      .result-meta .r-title {
+        font-size: 15px; font-weight: 600; color: var(--text-primary);
+        line-height: 1.25;
+        overflow: hidden; display: -webkit-box;
+        -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      }
+      .result-meta .r-author {
+        font-size: 13px; color: var(--text-secondary); margin-top: 2px;
+        overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+      }
+      .result-meta .r-year { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+      .result-row .chevron { flex: 0 0 auto; color: var(--text-tertiary); }
+
+      /* Section hint above results */
+      .list-hint {
+        padding: 4px 16px 8px;
+        font-size: 12px; color: var(--text-tertiary);
+        text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+      }
+
+      /* ---------- No-results / initial state ---------- */
+      .empty {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center; padding: 40px 40px 120px; gap: 14px;
+        color: var(--text-secondary);
+      }
+      .empty .badge {
+        width: 72px; height: 72px; border-radius: var(--r-pill);
+        background: var(--surface-1); border: 1px solid var(--separator);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-tertiary);
+      }
+      .empty h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+      .empty p { font-size: 14px; line-height: 1.4; max-width: 250px; }
+
+      /* ---------- Add-book bottom sheet ---------- */
+      .dim {
+        position: absolute; inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .sheet {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: var(--surface-1);
+        border-top-left-radius: 20px; border-top-right-radius: 20px;
+        border-top: 1px solid var(--separator);
+        padding: 10px 20px calc(20px + var(--safe-bottom));
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+      }
+      .grabber {
+        width: 36px; height: 5px; border-radius: var(--r-pill);
+        background: var(--separator); margin: 2px auto 12px;
+      }
+      .sheet-book {
+        display: flex; gap: 12px; align-items: center;
+        padding-bottom: 16px; margin-bottom: 4px;
+        border-bottom: 1px solid var(--separator);
+      }
+      .sheet-book .thumb { width: 50px; }
+      .sheet-book .sb-title { font-size: 16px; font-weight: 700; line-height: 1.2; }
+      .sheet-book .sb-author { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+      .field-label {
+        font-size: 12px; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+        margin: 16px 0 8px;
+      }
+      /* segmented picker (reused for category & status) */
+      .segment {
+        background: var(--surface-2);
+        border-radius: var(--r-control);
+        padding: 3px;
+        display: grid;
+        gap: 3px;
+      }
+      .segment.cols-2 { grid-template-columns: repeat(2, 1fr); }
+      .segment.cols-3 { grid-template-columns: repeat(3, 1fr); }
+      .segment button {
+        border: none; background: transparent;
+        color: var(--text-secondary);
+        font-size: 13px; font-weight: 600;
+        padding: 9px 4px; border-radius: 8px; white-space: nowrap;
+      }
+      .segment button.active {
+        background: var(--bg);
+        color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      .segment button.active .dot {
+        display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+        margin-right: 5px; vertical-align: middle;
+      }
+      .dot.reading { background: var(--reading); }
+      .dot.read { background: var(--read); }
+      .dot.want { background: var(--want); }
+
+      .confirm-btn {
+        width: 100%; margin-top: 22px;
+        background: var(--accent); color: #fff; border: none;
+        font-size: 16px; font-weight: 600;
+        padding: 14px; border-radius: var(--r-control);
+      }
+
+      /* ---------- Nav bar (detail push) ---------- */
+      .navbar {
+        flex: 0 0 auto;
+        height: 44px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 12px;
+      }
+      .nav-back {
+        display: flex; align-items: center; gap: 2px;
+        border: none; background: transparent;
+        color: var(--accent); font-size: 16px;
+      }
+      .nav-action {
+        border: none; background: transparent;
+        color: var(--accent); font-size: 16px;
+        display: flex; align-items: center;
+      }
+
+      /* ---------- Book detail ---------- */
+      .detail { padding: 8px 20px 24px; text-align: center; }
+      .detail .hero-cover {
+        width: 150px; aspect-ratio: 2 / 3; margin: 4px auto 18px;
+        border-radius: 10px; overflow: hidden;
+        background: var(--surface-2);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      }
+      .detail .hero-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .detail h2 {
+        font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+      .detail .authors { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+
+      /* badges row (status + category) */
+      .badge-row {
+        display: flex; justify-content: center; gap: 10px;
+        margin: 16px 0 18px; flex-wrap: wrap;
+      }
+      .status-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 14px; border-radius: var(--r-pill);
+        font-size: 13px; font-weight: 600;
+        border: 1px solid var(--separator);
+        background: var(--surface-1);
+        color: var(--text-primary);
+      }
+      .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .status-badge .caret-down { color: var(--text-tertiary); margin-left: 2px; }
+
+      /* metadata row */
+      .meta-row {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-card);
+        margin-bottom: 18px;
+        overflow: hidden;
+      }
+      .meta-cell {
+        padding: 12px 6px; text-align: center;
+      }
+      .meta-cell + .meta-cell { border-left: 1px solid var(--separator); }
+      .meta-cell .m-value { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+      .meta-cell .m-label {
+        font-size: 11px; color: var(--text-tertiary); margin-top: 3px;
+        text-transform: uppercase; letter-spacing: 0.03em;
+      }
+
+      .description {
+        text-align: left; font-size: 14px; line-height: 1.5;
+        color: var(--text-secondary); margin-bottom: 24px;
+      }
+
+      .remove-btn {
+        width: 100%;
+        background: transparent; color: #ff453a;
+        border: 1px solid rgba(255, 69, 58, 0.35);
+        border-radius: var(--r-control);
+        font-size: 15px; font-weight: 600; padding: 13px;
+      }
+
+      /* ---------- Account page ---------- */
+      .header {
+        flex: 0 0 auto;
+        padding: 4px 20px 10px;
+      }
+      .header h2 { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; }
+      .header .greeting { font-size: 15px; color: var(--text-secondary); margin-top: 2px; }
+
+      .account-scroll { flex: 1 1 auto; overflow-y: auto; padding: 6px 20px 20px; }
+
+      .stat-hero {
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-card);
+        padding: 20px; text-align: center; margin-bottom: 16px;
+      }
+      .stat-hero .big { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; }
+      .stat-hero .cap {
+        font-size: 12px; color: var(--text-tertiary); margin-top: 2px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+
+      .breakdown-label {
+        font-size: 12px; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+        margin: 4px 2px 10px;
+      }
+      .cat-card {
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-card);
+        padding: 14px 16px; margin-bottom: 12px;
+      }
+      .cat-card .cat-name { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+      .stat-triplet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .mini-stat { text-align: center; }
+      .mini-stat .mv { font-size: 20px; font-weight: 700; }
+      .mini-stat .ml {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; color: var(--text-secondary); margin-top: 3px;
+      }
+      .mini-stat .ml .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+      .logout-btn {
+        width: 100%; margin-top: 8px;
+        background: transparent; color: #ff453a;
+        border: 1px solid rgba(255, 69, 58, 0.35);
+        border-radius: var(--r-control);
+        font-size: 15px; font-weight: 600; padding: 13px;
+      }
+
+      /* ---------- Bottom navigation ---------- */
+      .tabbar {
+        flex: 0 0 auto;
+        height: calc(var(--nav-height) + var(--safe-bottom));
+        padding-bottom: var(--safe-bottom);
+        background: rgba(22, 22, 24, 0.92);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid var(--separator);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .tab {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 3px;
+        color: var(--text-tertiary);
+        border: none; background: transparent;
+        font-size: 10px; font-weight: 600; letter-spacing: 0.01em;
+        padding-top: 8px;
+      }
+      .tab.active { color: var(--accent); }
+      .tab svg { display: block; }
+
+      .home-indicator {
+        position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%);
+        width: 134px; height: 5px; border-radius: var(--r-pill);
+        background: rgba(245, 245, 247, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      <h1>BookTracker · Issue #9</h1>
+      <p>Search &amp; add flow, book detail &amp; account — dark theme, iOS-native, 390px viewport</p>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 1 — Search (results)
+         Presented modally from the library "+" button.
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">1 · Search — results</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field focused">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input value="dune" readonly aria-label="Search books" />
+            <span class="caret"></span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="scroll">
+          <div class="list-hint">Google Books · 5 results</div>
+          <div class="result-list">
+            <div class="result-row">
+              <div class="thumb">
+                <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Cdefs%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5d8a'/%3E%3Cstop offset='1' stop-color='%23122a44'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='180' fill='url(%23g2)'/%3E%3Crect x='12' y='20' width='70' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3Crect x='12' y='32' width='48' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3C/svg%3E" />
+              </div>
+              <div class="result-meta">
+                <div class="r-title">Dune</div>
+                <div class="r-author">Frank Herbert</div>
+                <div class="r-year">1965</div>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="result-row">
+              <div class="thumb">
+                <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Crect width='120' height='180' fill='%237a3510'/%3E%3Crect x='12' y='22' width='64' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3Crect x='12' y='34' width='40' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3C/svg%3E" />
+              </div>
+              <div class="result-meta">
+                <div class="r-title">Dune Messiah</div>
+                <div class="r-author">Frank Herbert</div>
+                <div class="r-year">1969</div>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="result-row">
+              <div class="thumb fallback">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div class="result-meta">
+                <div class="r-title">Children of Dune</div>
+                <div class="r-author">Frank Herbert</div>
+                <div class="r-year">1976</div>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="result-row">
+              <div class="thumb">
+                <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Crect width='120' height='180' fill='%23223047'/%3E%3Crect x='12' y='22' width='58' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3Crect x='12' y='34' width='72' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3C/svg%3E" />
+              </div>
+              <div class="result-meta">
+                <div class="r-title">The Science of Dune</div>
+                <div class="r-author">Kevin R. Grazier</div>
+                <div class="r-year">2008</div>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="result-row">
+              <div class="thumb fallback">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div class="result-meta">
+                <div class="r-title">The Dune Encyclopedia</div>
+                <div class="r-author">Willis E. McNelly</div>
+                <div class="r-year">1984</div>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 2 — Search (no results)
+         Also stands in for the initial "type to search" prompt.
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">2 · Search — no results</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field focused">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input value="qwxzkt" readonly aria-label="Search books" />
+            <span class="caret"></span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="empty">
+          <div class="badge">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </div>
+          <h3>No matches</h3>
+          <p>No books found for &ldquo;qwxzkt&rdquo;. Check your spelling or try a different title or author.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 3 — Add book (bottom sheet over dimmed results)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">3 · Add book — sheet</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <!-- faint underlying results, dimmed -->
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <span class="placeholder">dune</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+        <div class="scroll" aria-hidden="true">
+          <div class="result-list">
+            <div class="result-row">
+              <div class="thumb"><img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Crect width='120' height='180' fill='%232f5d8a'/%3E%3C/svg%3E" /></div>
+              <div class="result-meta"><div class="r-title">Dune</div><div class="r-author">Frank Herbert</div><div class="r-year">1965</div></div>
+            </div>
+            <div class="result-row">
+              <div class="thumb"><img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Crect width='120' height='180' fill='%237a3510'/%3E%3C/svg%3E" /></div>
+              <div class="result-meta"><div class="r-title">Dune Messiah</div><div class="r-author">Frank Herbert</div><div class="r-year">1969</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dim"></div>
+
+        <div class="sheet">
+          <div class="grabber"></div>
+          <div class="sheet-book">
+            <div class="thumb">
+              <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Cdefs%3E%3ClinearGradient id='gs' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5d8a'/%3E%3Cstop offset='1' stop-color='%23122a44'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='180' fill='url(%23gs)'/%3E%3Crect x='12' y='20' width='70' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3Crect x='12' y='32' width='48' height='7' rx='2' fill='%23fff' fill-opacity='0.85'/%3E%3C/svg%3E" />
+            </div>
+            <div>
+              <div class="sb-title">Dune</div>
+              <div class="sb-author">Frank Herbert · 1965</div>
+            </div>
+          </div>
+
+          <div class="field-label">Category</div>
+          <div class="segment cols-2">
+            <button class="active">Novel</button>
+            <button>Non-Fiction</button>
+          </div>
+
+          <div class="field-label">Status</div>
+          <div class="segment cols-3">
+            <button class="active"><span class="dot reading"></span>Reading</button>
+            <button><span class="dot read"></span>Read</button>
+            <button><span class="dot want"></span>Want</button>
+          </div>
+
+          <button class="confirm-btn">Add to library</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 4 — Book detail (pushed from a library card)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">4 · Book detail</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="navbar">
+          <button class="nav-back">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>
+            Novels
+          </button>
+        </div>
+
+        <div class="scroll">
+          <div class="detail">
+            <div class="hero-cover">
+              <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Cdefs%3E%3ClinearGradient id='gd' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5d8a'/%3E%3Cstop offset='1' stop-color='%23122a44'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23gd)'/%3E%3Crect x='24' y='40' width='120' height='12' rx='3' fill='%23fff' fill-opacity='0.9'/%3E%3Crect x='24' y='60' width='84' height='12' rx='3' fill='%23fff' fill-opacity='0.9'/%3E%3Crect x='24' y='250' width='90' height='9' rx='3' fill='%23fff' fill-opacity='0.6'/%3E%3C/svg%3E" />
+            </div>
+            <h2>Dune</h2>
+            <div class="authors">Frank Herbert</div>
+
+            <div class="badge-row">
+              <button class="status-badge">
+                <span class="dot" style="background: var(--reading)"></span>
+                Reading
+                <svg class="caret-down" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <button class="status-badge">
+                Novel
+                <svg class="caret-down" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
+
+            <div class="meta-row">
+              <div class="meta-cell">
+                <div class="m-value">412</div>
+                <div class="m-label">Pages</div>
+              </div>
+              <div class="meta-cell">
+                <div class="m-value">1965</div>
+                <div class="m-label">Year</div>
+              </div>
+              <div class="meta-cell">
+                <div class="m-value">978&#8209;0441172719</div>
+                <div class="m-label">ISBN</div>
+              </div>
+            </div>
+
+            <div class="description">
+              Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides,
+              heir to a noble family tasked with ruling an inhospitable world where the only
+              thing of value is the &ldquo;spice&rdquo; melange, a drug capable of extending life
+              and enhancing consciousness. A stunning blend of adventure and mysticism,
+              environmentalism and politics.
+            </div>
+
+            <button class="remove-btn">Remove from library</button>
+          </div>
+        </div>
+
+        <nav class="tabbar">
+          <button class="tab active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4V5.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6V5.5z"/></svg>
+            Novels
+          </button>
+          <button class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l3 3v13H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+            Non-Fiction
+          </button>
+          <button class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+            Account
+          </button>
+        </nav>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 5 — Account (stats + logout)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">5 · Account</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="header">
+          <h2>Account</h2>
+          <div class="greeting">Hello, Nicolas</div>
+        </div>
+
+        <div class="account-scroll">
+          <div class="stat-hero">
+            <div class="big">42</div>
+            <div class="cap">Books in library</div>
+          </div>
+
+          <div class="breakdown-label">By category &amp; status</div>
+
+          <div class="cat-card">
+            <div class="cat-name">Novels</div>
+            <div class="stat-triplet">
+              <div class="mini-stat">
+                <div class="mv">3</div>
+                <div class="ml"><span class="dot" style="background: var(--reading)"></span>Reading</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mv">18</div>
+                <div class="ml"><span class="dot" style="background: var(--read)"></span>Read</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mv">7</div>
+                <div class="ml"><span class="dot" style="background: var(--want)"></span>Want</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cat-card">
+            <div class="cat-name">Non-Fiction</div>
+            <div class="stat-triplet">
+              <div class="mini-stat">
+                <div class="mv">1</div>
+                <div class="ml"><span class="dot" style="background: var(--reading)"></span>Reading</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mv">9</div>
+                <div class="ml"><span class="dot" style="background: var(--read)"></span>Read</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mv">4</div>
+                <div class="ml"><span class="dot" style="background: var(--want)"></span>Want</div>
+              </div>
+            </div>
+          </div>
+
+          <button class="logout-btn">Log out</button>
+        </div>
+
+        <nav class="tabbar">
+          <button class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4V5.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6V5.5z"/></svg>
+            Novels
+          </button>
+          <button class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l3 3v13H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+            Non-Fiction
+          </button>
+          <button class="tab active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+            Account
+          </button>
+        </nav>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+  </body>
+</html>
