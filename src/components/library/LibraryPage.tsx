@@ -42,6 +42,16 @@ export function LibraryPage({ category, title, from }: LibraryPageProps): React.
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    function handleFocus(): void {
+      setReloadKey((key) => key + 1);
+    }
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     async function loadBooks(): Promise<void> {
