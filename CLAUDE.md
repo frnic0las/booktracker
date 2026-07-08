@@ -88,15 +88,16 @@ booktracker/
 │   ├── app/
 │   │   ├── (auth)/       # Login (public)
 │   │   │   └── login/page.tsx
-│   │   ├── (app)/        # Main app (authenticated)
-│   │   │   ├── library/  # Book library + [id] detail
-│   │   │   ├── search/   # Search Google Books + add
-│   │   │   ├── lists/    # Custom reading lists
-│   │   │   └── profile/  # Stats + settings
+│   │   ├── (app)/        # Main app (authenticated) — shared layout + BottomNav
+│   │   │   ├── layout.tsx    # App shell: scrollable content + bottom nav
+│   │   │   ├── novels/       # Novels library (category = novel)
+│   │   │   ├── non-fiction/  # Non-Fiction library (category = non_fiction)
+│   │   │   ├── search/       # Search Google Books + add
+│   │   │   └── account/      # Stats + settings
 │   │   ├── api/
 │   │   │   └── books/    # Google Books proxy (search, details)
 │   │   ├── layout.tsx
-│   │   └── page.tsx      # Redirect to /library or /login
+│   │   └── page.tsx      # Redirect to /novels
 │   ├── components/
 │   │   ├── ui/           # Button, Modal, SearchBar, BottomNav, Sheet
 │   │   ├── books/        # BookCard, BookDetail, BookSearch
