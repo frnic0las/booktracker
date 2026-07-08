@@ -111,7 +111,7 @@ Presented **modally** from the library `+` button — full-screen, no bottom nav
     → inserts `books` (if new) + `userBooks` row for the session `user_id`, then
     dismisses the sheet and the search modal.
 
-### Book detail page → `src/app/(app)/library/[id]/page.tsx`
+### Book detail page → `src/app/(app)/books/[id]/page.tsx`
 
 Pushed navigation from a `BookCard`. Keeps the bottom nav (within the tab's stack).
 
@@ -144,7 +144,7 @@ Pushed navigation from a `BookCard`. Keeps the bottom nav (within the tab's stac
   button; confirm before firing the **remove-book Server Action** (deletes the
   `userBooks` row for this `user_id`, leaves the shared `books` row).
 
-### Account page → `src/app/(app)/profile/page.tsx`
+### Account page → `src/app/(app)/account/page.tsx`
 
 Account tab active in the bottom nav.
 
