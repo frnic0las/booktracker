@@ -10,10 +10,10 @@ entire app** — the tokens below are the seed for `docs/DESIGN_SYSTEM.md`.
 
 Open `mockup.html` in a browser. It contains four boards, all at a 390px viewport:
 
-1. **Novels — Currently Reading** (populated grid + reading progress)
+1. **Novels — Currently Reading** (populated grid)
 2. **Novels — Want to Read** (empty state)
 3. **Non-Fiction — Read** (populated grid, second tab active)
-4. **BookCard — component states** (cover / cover+progress / fallback)
+4. **BookCard — component states** (cover / fallback)
 
 ---
 
@@ -43,7 +43,7 @@ Add these to `src/app/globals.css` under `@theme` (Tailwind v4, no config file).
 | `--color-secondary`      | `#a1a1aa`  | `#6b6b73`   | `text-secondary`              | Authors, inactive segment labels        |
 | `--color-tertiary`       | `#6b6b73`  | `#a1a1aa`   | `text-tertiary`               | Inactive tab icons, empty-state icon    |
 | `--color-accent`         | `#0a84ff`  | `#007aff`   | `text-accent` / `bg-accent`   | Active tab, `+`, CTA buttons            |
-| `--color-reading`        | `#ff9f0a`  | `#f59e0b`   | `text-reading` / `bg-reading` | Currently-reading progress + page count |
+| `--color-reading`        | `#ff9f0a`  | `#f59e0b`   | `text-reading` / `bg-reading` | Currently-reading status accent         |
 | `--color-read`           | `#30d158`  | `#28a745`   | `bg-read`                     | Finished status accents                 |
 | `--color-want`           | `#5e5ce6`  | `#5856d6`   | `bg-want`                     | Want-to-read status accents             |
 
@@ -70,7 +70,6 @@ override); dark is the default. Both themes share the same class names above.
 | Segment label    | 13px / 600           | `text-[13px] font-semibold`    |
 | Book title       | 12px / 600, 2-line clamp | `text-xs font-semibold line-clamp-2` |
 | Book author      | 11px / 400, truncate | `text-[11px] text-secondary truncate` |
-| Page progress    | 10px / 600, reading  | `text-[10px] font-semibold text-reading` |
 | Tab label        | 10px / 600           | `text-[10px] font-semibold`    |
 
 ---
@@ -120,21 +119,16 @@ Props map to schema (`books` + `userBooks`):
 | Cover image         | `books.thumbnail`                     |
 | Title               | `books.title`                         |
 | Author              | `books.authors`                       |
-| Progress ribbon %   | `userBooks.currentPage / books.pageCount` |
-| Page label          | `currentPage` / `pageCount`           |
+
+The card is identical across all statuses — only `status` (want_to_read /
+reading / read) is tracked, so there is no per-book reading-progress indicator.
 
 **States (board 4):**
 
 - **A — With cover:** 2:3 `rounded-lg` image, `object-cover`, soft shadow.
-- **B — With cover + progress:** adds a 4px `bg-reading` ribbon along the cover
-  bottom + `p. X / Y · Z%` line in reading amber. Shown only for `status = reading`.
-- **C — Fallback (no `thumbnail`):** gradient tile (`from-surface-2 to-surface-1`,
+- **B — Fallback (no `thumbnail`):** gradient tile (`from-surface-2 to-surface-1`,
   `border border-separator`) with the title clamped to 4 lines and a small book
   glyph. Guarantees no broken-image and keeps the grid rhythm intact.
-
-**Null `pageCount`:** `books.pageCount` is nullable. When it is null on a
-`reading` book, omit the progress ribbon and show only `p. <currentPage>` (never
-compute a percentage) — no divide-by-null.
 
 ### Empty state → `src/components/ui/EmptyState`
 
@@ -152,7 +146,7 @@ compute a percentage) — no divide-by-null.
 - [x] Sub-tabs — all three, each shown active across boards
 - [x] Book grid — 3 columns, cover + title + author
 - [x] Empty state — per sub-tab
-- [x] BookCard — with cover, with cover + progress, fallback (no cover)
+- [x] BookCard — with cover, fallback (no cover)
 
 ## Notes for implementation
 

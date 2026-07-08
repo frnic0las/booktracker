@@ -187,16 +187,6 @@
         margin-top: 8px; color: var(--text-tertiary);
       }
 
-      /* progress ribbon on currently-reading covers */
-      .progress {
-        position: absolute; left: 0; right: 0; bottom: 0;
-        height: 4px; background: rgba(255, 255, 255, 0.14);
-      }
-      .progress > span {
-        display: block; height: 100%; background: var(--reading);
-        border-radius: 0 2px 2px 0;
-      }
-
       .meta .title {
         font-size: 12px; font-weight: 600; color: var(--text-primary);
         line-height: 1.25; overflow: hidden; display: -webkit-box;
@@ -205,9 +195,6 @@
       .meta .author {
         font-size: 11px; color: var(--text-secondary); margin-top: 1px;
         overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-      }
-      .meta .pages {
-        font-size: 10px; color: var(--reading); font-weight: 600; margin-top: 2px;
       }
 
       /* ---------- Empty state ---------- */
@@ -308,24 +295,20 @@
             <div class="book">
               <div class="cover">
                 <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c1443b'/%3E%3Cstop offset='1' stop-color='%236b1e18'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23g)'/%3E%3Crect x='16' y='24' width='120' height='10' rx='3' fill='%23ffffff' fill-opacity='0.85'/%3E%3Crect x='16' y='40' width='90' height='10' rx='3' fill='%23ffffff' fill-opacity='0.85'/%3E%3Crect x='16' y='250' width='70' height='8' rx='3' fill='%23ffffff' fill-opacity='0.6'/%3E%3C/svg%3E" />
-                <div class="progress"><span style="width: 62%"></span></div>
               </div>
               <div class="meta">
                 <div class="title">The Name of the Wind</div>
                 <div class="author">Patrick Rothfuss</div>
-                <div class="pages">p. 412 / 662 · 62%</div>
               </div>
             </div>
 
             <div class="book">
               <div class="cover">
                 <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5d8a'/%3E%3Cstop offset='1' stop-color='%23122a44'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23g2)'/%3E%3Crect x='16' y='28' width='110' height='9' rx='3' fill='%23ffffff' fill-opacity='0.85'/%3E%3Crect x='16' y='44' width='80' height='9' rx='3' fill='%23ffffff' fill-opacity='0.85'/%3E%3C/svg%3E" />
-                <div class="progress"><span style="width: 28%"></span></div>
               </div>
               <div class="meta">
                 <div class="title">Dune</div>
                 <div class="author">Frank Herbert</div>
-                <div class="pages">p. 118 / 412 · 28%</div>
               </div>
             </div>
 
@@ -334,12 +317,10 @@
               <div class="cover fallback">
                 <div class="fb-title">The Left Hand of Darkness</div>
                 <svg class="fb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
-                <div class="progress"><span style="width: 9%"></span></div>
               </div>
               <div class="meta">
                 <div class="title">The Left Hand of Darkness</div>
                 <div class="author">Ursula K. Le Guin</div>
-                <div class="pages">p. 27 / 304 · 9%</div>
               </div>
             </div>
           </div>
@@ -541,19 +522,7 @@
               <div class="author">Patrick Rothfuss</div>
             </div>
           </div>
-          <!-- B. with cover + reading progress -->
-          <div class="book">
-            <div class="cover">
-              <img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Cdefs%3E%3ClinearGradient id='gb' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f5d8a'/%3E%3Cstop offset='1' stop-color='%23122a44'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='300' fill='url(%23gb)'/%3E%3Crect x='16' y='28' width='110' height='9' rx='3' fill='%23fff' fill-opacity='0.85'/%3E%3C/svg%3E" />
-              <div class="progress"><span style="width: 45%"></span></div>
-            </div>
-            <div class="meta">
-              <div class="title">Dune</div>
-              <div class="author">Frank Herbert</div>
-              <div class="pages">p. 185 / 412 · 45%</div>
-            </div>
-          </div>
-          <!-- C. fallback (no cover) -->
+          <!-- B. fallback (no cover) -->
           <div class="book">
             <div class="cover fallback">
               <div class="fb-title">The Left Hand of Darkness</div>
@@ -565,7 +534,7 @@
             </div>
           </div>
         </div>
-        <div class="card-note">A · cover &nbsp;|&nbsp; B · cover + progress ribbon &nbsp;|&nbsp; C · fallback (no thumbnail)</div>
+        <div class="card-note">A · cover &nbsp;|&nbsp; B · fallback (no thumbnail)</div>
       </div>
     </div>
   </body>
