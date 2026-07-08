@@ -52,7 +52,7 @@ Repository: `frnic0las/booktracker` — License: AGPL-3.0
 
 - Schema defined with Drizzle ORM in `src/lib/db/schema.ts`
 - Migrations managed by Drizzle Kit (`drizzle-kit generate` / `drizzle-kit push`)
-- No RLS (not SQLite) — auth checks enforced in middleware + every query
+- No RLS (not SQLite) — auth checks enforced in the proxy + every query
 - Every query that touches user data MUST filter by `user_id`
 - Use parameterized queries — NEVER interpolate user input into SQL
 - Local dev: `turso dev --db-file local.db` or `file:local.db` via libSQL client
@@ -62,7 +62,7 @@ Repository: `frnic0las/booktracker` — License: AGPL-3.0
 - Auth.js v5 configured in `src/lib/auth/`
 - Credentials provider (email + password) — single user
 - Session strategy: JWT (compatible with Vercel serverless)
-- Middleware protects all `/(app)/` routes
+- Proxy (`src/proxy.ts`) protects all `/(app)/` routes
 - `auth()` helper used in Server Components and Route Handlers
 - User ID from session injected into every Turso query
 

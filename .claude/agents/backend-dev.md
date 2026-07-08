@@ -37,7 +37,7 @@ You are a senior TypeScript backend developer working on BookTracker, a personal
 
 - Auth.js v5 with credentials provider
 - `auth()` helper from `src/lib/auth/` in Server Components and Route Handlers
-- Middleware in `src/middleware.ts` protects `/(app)/` routes
+- Proxy in `src/proxy.ts` (Next.js 16 proxy convention) protects `/(app)/` routes
 - Session contains `user.id` — use it in every query
 
 ## Google Books Conventions
