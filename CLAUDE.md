@@ -51,6 +51,7 @@ Repository: `frnic0las/booktracker` — License: AGPL-3.0
 ## Database Conventions (Turso / libSQL)
 
 - Schema defined with Drizzle ORM in `src/lib/db/schema.ts`
+- Status only (reading / read / want_to_read) — no page progress tracking.
 - Migrations managed by Drizzle Kit (`drizzle-kit generate` / `drizzle-kit push`)
 - No RLS (not SQLite) — auth checks enforced in the proxy + every query
 - Every query that touches user data MUST filter by `user_id`

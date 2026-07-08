@@ -52,7 +52,6 @@ export function mapRowToLibraryEntry(row: { userBook: UserBookRow; book: BookRow
     userBookId: row.userBook.id,
     status: row.userBook.status,
     category: row.userBook.category,
-    currentPage: row.userBook.currentPage,
     rating: row.userBook.rating,
     startedAt: row.userBook.startedAt,
     finishedAt: row.userBook.finishedAt,
