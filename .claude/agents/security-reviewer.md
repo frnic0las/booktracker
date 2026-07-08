@@ -28,7 +28,7 @@ Security is critical because:
 ### Authentication
 
 - Auth.js v5 properly configured with credentials provider
-- Middleware in `src/middleware.ts` protects all `/(app)/` routes
+- Proxy in `src/proxy.ts` (Next.js 16 proxy convention) protects all `/(app)/` routes
 - `auth()` called in every Route Handler and Server Action before DB access
 - Session strategy is JWT (stateless, Vercel-compatible)
 - AUTH_SECRET is strong and in .env.local only
