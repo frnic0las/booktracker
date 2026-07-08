@@ -6,3 +6,19 @@ node_modules/
 .env.local.prod
 drizzle/meta/
 docs/mockups/**/node_modules/
+
+# next.js / build output
+/out/
+/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.pem
+.vercel
+/coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
