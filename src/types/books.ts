@@ -13,6 +13,8 @@ export interface Book {
 
 export type ReadingStatus = "want_to_read" | "reading" | "read";
 
+export type BookRating = 1 | 2 | 3;
+
 export type BookCategory = "novel" | "non_fiction";
 
 export interface UserBook {
@@ -22,6 +24,7 @@ export interface UserBook {
   status: ReadingStatus;
   category: BookCategory;
   rating: number | null;
+  abandoned: boolean;
   notes: string | null;
   startedAt: Date | null;
   finishedAt: Date | null;
@@ -41,6 +44,7 @@ export interface LibraryEntry {
   status: ReadingStatus;
   category: BookCategory;
   rating: number | null;
+  abandoned: boolean;
   startedAt: Date | null;
   finishedAt: Date | null;
   book: Book;

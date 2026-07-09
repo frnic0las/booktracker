@@ -61,6 +61,7 @@ function buildUserBookRow(overrides: Partial<UserBookRow> = {}): UserBookRow {
     status: "reading",
     category: "novel",
     rating: null,
+    abandoned: 0,
     notes: null,
     startedAt: new Date("2024-02-01T00:00:00.000Z"),
     finishedAt: null,
@@ -146,6 +147,7 @@ describe("books mappers", () => {
         status: "reading",
         category: "novel",
         rating: null,
+        abandoned: false,
         startedAt: new Date("2024-02-01T00:00:00.000Z"),
         finishedAt: null,
         book: {
@@ -167,6 +169,13 @@ describe("books mappers", () => {
       const book = buildBookRow({ authors: null });
 
       expect(mapRowToLibraryEntry({ userBook, book }).book.authors).toEqual([]);
+    });
+
+    it("maps an abandoned column value of 1 to true", () => {
+      const userBook = buildUserBookRow({ abandoned: 1 });
+      const book = buildBookRow();
+
+      expect(mapRowToLibraryEntry({ userBook, book }).abandoned).toBe(true);
     });
   });
 });

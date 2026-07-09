@@ -53,6 +53,7 @@ export function mapRowToLibraryEntry(row: { userBook: UserBookRow; book: BookRow
     status: row.userBook.status,
     category: row.userBook.category,
     rating: row.userBook.rating,
+    abandoned: row.userBook.abandoned === 1,
     startedAt: row.userBook.startedAt,
     finishedAt: row.userBook.finishedAt,
     book,

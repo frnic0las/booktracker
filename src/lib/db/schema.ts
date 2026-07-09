@@ -48,6 +48,7 @@ export const userBooks = sqliteTable(
       .notNull()
       .default("novel"),
     rating: integer("rating"),
+    abandoned: integer("abandoned").notNull().default(0),
     notes: text("notes"),
     startedAt: integer("started_at", { mode: "timestamp" }),
     finishedAt: integer("finished_at", { mode: "timestamp" }),
