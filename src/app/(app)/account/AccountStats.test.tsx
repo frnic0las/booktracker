@@ -56,6 +56,9 @@ describe("AccountStats", () => {
     expect(await screen.findByText("42")).toBeTruthy();
     expect(screen.getByText("Total books")).toBeTruthy();
 
+    expect(screen.getByText("8,420")).toBeTruthy();
+    expect(screen.getByText("Pages read")).toBeTruthy();
+
     expect(screen.getByText("Novels")).toBeTruthy();
     expect(screen.getByText("Non-Fiction")).toBeTruthy();
 
@@ -79,12 +82,13 @@ describe("AccountStats", () => {
     render(<AccountStats />);
 
     expect(await screen.findByText("Total books")).toBeTruthy();
+    expect(screen.getByText("Pages read")).toBeTruthy();
     expect(screen.getByText("Novels")).toBeTruthy();
     expect(screen.getByText("Non-Fiction")).toBeTruthy();
 
     const zeros = screen.getAllByText("0");
-    // total + 3 novels statuses + 3 non-fiction statuses
-    expect(zeros.length).toBe(7);
+    // total + pages read + 3 novels statuses + 3 non-fiction statuses
+    expect(zeros.length).toBe(8);
   });
 
   it("shows an error message and Retry button on a non-ok response, and refetches on retry", async () => {
