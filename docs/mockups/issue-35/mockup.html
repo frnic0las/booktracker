@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #35 · PWA app icon</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Same seed as issues #8 / #9 / #26 / #32; maps 1:1 to globals.css.
+         No new token is introduced by this issue.
+         ============================================================ */
+      :root {
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        --accent: #0a84ff;
+        --read: #30d158;
+        --reading: #ff9f0a;
+
+        /* iOS home-screen icon corner radius ≈ 22.37% of the side.
+           Applied in previews only — the exported PNG must stay square. */
+        --squircle: 22.37%;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 48px 24px 96px;
+        background: var(--bg);
+        color: var(--text-primary);
+        font:
+          15px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          "SF Pro Text",
+          "Segoe UI",
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 30px;
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        margin: 0 0 8px;
+        max-width: 68ch;
+        color: var(--text-secondary);
+      }
+
+      h2 {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .board {
+        margin-top: 40px;
+        padding: 28px;
+        border: 1px solid var(--separator);
+        border-radius: 18px;
+        background: var(--surface-1);
+      }
+
+      .board > p {
+        margin: 0 0 22px;
+        max-width: 74ch;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 30px;
+      }
+
+      figure {
+        margin: 0;
+        text-align: center;
+      }
+
+      figcaption {
+        margin-top: 10px;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-tertiary);
+      }
+
+      figcaption b {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      /* ---- icon previews -------------------------------------- */
+      .ico {
+        display: block;
+        border-radius: var(--squircle);
+      }
+
+      /* Raw export shape: square, no mask. This is what ships as PNG. */
+      .ico--square {
+        border-radius: 0;
+      }
+
+      .ico--circle {
+        border-radius: 50%;
+      }
+
+      /* Android "rounded rect" adaptive mask */
+      .ico--rrect {
+        border-radius: 16%;
+      }
+
+      /* ---- home-screen context --------------------------------- */
+      .home {
+        display: grid;
+        grid-template-columns: repeat(4, 60px);
+        justify-content: center;
+        gap: 26px 22px;
+        width: 340px;
+        padding: 26px 18px 22px;
+        border: 1px solid var(--separator);
+        border-radius: 26px;
+      }
+
+      .home--night {
+        background: radial-gradient(120% 90% at 30% 0%, #232746 0%, #0d0d16 60%, #050507 100%);
+      }
+
+      .home--day {
+        background: radial-gradient(120% 90% at 70% 0%, #ffffff 0%, #e7e9f1 55%, #cfd4e2 100%);
+      }
+
+      .home--busy {
+        background:
+          radial-gradient(80% 60% at 15% 20%, #ff9f0a 0%, transparent 60%),
+          radial-gradient(70% 70% at 85% 30%, #5e5ce6 0%, transparent 62%),
+          linear-gradient(160deg, #30d158 0%, #0a84ff 50%, #1b1b2f 100%);
+      }
+
+      .home .app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .home .app span {
+        max-width: 66px;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .home--night .app span,
+      .home--busy .app span {
+        color: #fff;
+        text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+      }
+
+      .home--day .app span {
+        color: #1c1c1e;
+        text-shadow: 0 1px 3px rgb(255 255 255 / 0.7);
+      }
+
+      /* Neighbour placeholders — flat tiles, never real logos */
+      .stub {
+        width: 60px;
+        height: 60px;
+        border-radius: var(--squircle);
+      }
+
+      /* ---- maskable safe zone ---------------------------------- */
+      .safe {
+        position: relative;
+        width: 240px;
+        height: 240px;
+      }
+
+      .safe .overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .safe .overlay::before,
+      .safe .overlay::after {
+        position: absolute;
+        content: "";
+      }
+
+      /* 80% safe circle */
+      .safe .overlay::before {
+        inset: 10%;
+        border: 1.5px dashed rgb(255 69 58 / 0.9);
+        border-radius: 50%;
+      }
+
+      /* 80% safe square */
+      .safe .overlay::after {
+        inset: 10%;
+        border: 1.5px dashed rgb(48 209 88 / 0.75);
+      }
+
+      .legend {
+        display: flex;
+        gap: 18px;
+        margin-top: 16px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .legend i {
+        display: inline-block;
+        width: 22px;
+        margin-right: 6px;
+        border-top: 1.5px dashed currentColor;
+        vertical-align: middle;
+      }
+
+      .legend .c-circle {
+        color: #ff453a;
+      }
+
+      .legend .c-square {
+        color: #30d158;
+      }
+
+      /* ---- legibility tests ------------------------------------ */
+      .f-gray {
+        filter: grayscale(1);
+      }
+
+      .f-blur {
+        filter: blur(1.6px);
+      }
+
+      .f-thresh {
+        filter: grayscale(1) contrast(6);
+      }
+
+      /* ---- splash ---------------------------------------------- */
+      .splash {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 148px;
+        border: 1px solid var(--separator);
+        border-radius: 20px;
+        aspect-ratio: 1290 / 2796;
+      }
+
+      .splash--dark {
+        background: #0a0a0b;
+      }
+
+      .splash--light {
+        background: #ffffff;
+      }
+
+      .splash svg {
+        width: 45%;
+        /* optical centre sits slightly above the geometric centre */
+        transform: translateY(-4%);
+      }
+
+      /* ---- tables ---------------------------------------------- */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--separator);
+        text-align: left;
+      }
+
+      th {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+
+      td code {
+        color: var(--text-primary);
+      }
+
+      code {
+        font:
+          12px/1.5 ui-monospace,
+          "SF Mono",
+          Menlo,
+          monospace;
+        color: var(--text-secondary);
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        margin-right: 8px;
+        border: 1px solid rgb(255 255 255 / 0.14);
+        border-radius: 3px;
+        vertical-align: -2px;
+      }
+
+      pre {
+        overflow-x: auto;
+        margin: 0;
+        padding: 20px;
+        border: 1px solid var(--separator);
+        border-radius: 12px;
+        background: var(--bg);
+        font:
+          12px/1.65 ui-monospace,
+          "SF Mono",
+          Menlo,
+          monospace;
+        color: var(--text-secondary);
+      }
+
+      .note {
+        margin-top: 20px;
+        padding: 14px 16px;
+        border-left: 2px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        background: var(--surface-2);
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      .note b {
+        color: var(--text-primary);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============================================================
+         SVG SOURCE — single definition, reused by every board below.
+         The implementation issue exports PNGs from `icon.svg` and
+         `icon-maskable.svg`, which carry these exact paths.
+         ============================================================ -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="g-bg" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#17171c" />
+          <stop offset="1" stop-color="#0a0a0b" />
+        </linearGradient>
+        <radialGradient id="g-glow" cx="256" cy="188" r="286" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#0a84ff" stop-opacity="0.22" />
+          <stop offset="1" stop-color="#0a84ff" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="g-page" x1="256" y1="174" x2="256" y2="348" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ffffff" />
+          <stop offset="1" stop-color="#cfcfd6" />
+        </linearGradient>
+        <linearGradient id="g-ribbon" x1="256" y1="196" x2="256" y2="396" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#4ba7ff" />
+          <stop offset="1" stop-color="#0a6fe0" />
+        </linearGradient>
+
+        <!-- The three primitives. Fills are applied by the callers. -->
+        <path id="p-page-l" d="M248 210 114 178q-16-4-16 12v104q0 16 16 20l134 34Z" />
+        <path id="p-page-r" d="M248 210 114 178q-16-4-16 12v104q0 16 16 20l134 34Z" transform="translate(512 0) scale(-1 1)" />
+        <path id="p-ribbon" d="M232 208c0-7 5-12 12-12h24c7 0 12 5 12 12v188l-24-24-24 24Z" />
+
+        <!-- Glyph, dark surfaces: white pages + accent bookmark -->
+        <symbol id="glyph" viewBox="0 0 512 512">
+          <g transform="translate(0 -29)">
+            <g fill="url(#g-page)">
+              <use href="#p-page-l" />
+              <use href="#p-page-r" />
+            </g>
+            <use href="#p-ribbon" fill="url(#g-ribbon)" />
+          </g>
+        </symbol>
+
+        <!-- Glyph, light surfaces: ink pages + light-mode accent -->
+        <symbol id="glyph-light" viewBox="0 0 512 512">
+          <g transform="translate(0 -29)">
+            <g fill="#1c1c1e">
+              <use href="#p-page-l" />
+              <use href="#p-page-r" />
+            </g>
+            <use href="#p-ribbon" fill="#007aff" />
+          </g>
+        </symbol>
+
+        <!-- Full icon tile (apple-touch-icon, icon-192, icon-512) -->
+        <symbol id="tile" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="url(#g-bg)" />
+          <rect width="512" height="512" fill="url(#g-glow)" />
+          <use href="#glyph" width="512" height="512" />
+        </symbol>
+
+        <!-- Maskable tile: same field, glyph shrunk to 90% -->
+        <symbol id="tile-maskable" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="url(#g-bg)" />
+          <rect width="512" height="512" fill="url(#g-glow)" />
+          <g transform="translate(256 256) scale(0.9) translate(-256 -256)">
+            <use href="#glyph" width="512" height="512" />
+          </g>
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="page">
+      <h1>BookTracker — app icon</h1>
+      <p class="lede">
+        Issue #35 · An open book seen head-on — two pages splaying up and away from a centre gutter — with an accent
+        bookmark ribbon rising out of the fold and hanging below it. The ribbon is the whole idea: a book alone says
+        <em>library</em>, a book with a bookmark says <em>I am partway through this</em> — which is what BookTracker
+        tracks.
+      </p>
+      <p class="lede">
+        Every board below renders the same SVG source (see the last board). Nothing here is a bitmap.
+      </p>
+
+      <!-- ============ BOARD 1 — the mark ============ -->
+      <section class="board">
+        <h2>1 · The mark</h2>
+        <p>
+          Left: the asset as exported — a square PNG, corners untouched. Right: how iOS actually draws it, masked into
+          the home-screen squircle. <b>Never bake the rounded corners into the file.</b>
+        </p>
+        <div class="row">
+          <figure>
+            <svg class="ico ico--square" width="256" height="256" viewBox="0 0 512 512" role="img" aria-label="BookTracker icon, square">
+              <use href="#tile" width="512" height="512" />
+            </svg>
+            <figcaption><b>Exported asset</b>square, 1:1</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="256" height="256" viewBox="0 0 512 512" role="img" aria-label="BookTracker icon, iOS squircle">
+              <use href="#tile" width="512" height="512" />
+            </svg>
+            <figcaption><b>As iOS renders it</b>squircle mask</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico ico--circle" width="256" height="256" viewBox="0 0 512 512" role="img" aria-label="BookTracker icon, circular mask">
+              <use href="#tile-maskable" width="512" height="512" />
+            </svg>
+            <figcaption><b>Maskable, circle</b>Android adaptive</figcaption>
+          </figure>
+        </div>
+        <div class="note">
+          <b>Why a dark tile and not an accent-blue one?</b> The app is a dark-first, iOS-native surface —
+          <code>#0a0a0b</code> everywhere. A blue tile would be the only place the accent behaves as a background
+          rather than an action colour, and it would collide with the dozens of blue system icons already on the
+          home screen. The dark field with a faint accent bloom keeps the blue meaning exactly what it means inside
+          the app: <em>this is the thing you touch.</em>
+        </div>
+      </section>
+
+      <!-- ============ BOARD 2 — size ladder ============ -->
+      <section class="board">
+        <h2>2 · Size ladder</h2>
+        <p>
+          The mark holds down to 29px because it is three shapes, not thirty: two pages and a ribbon. There are no
+          page lines, no serifs, no text — the first details to die under a 3× downscale.
+        </p>
+        <div class="row">
+          <figure>
+            <svg class="ico" width="180" height="180" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>180 px</b>apple-touch-icon</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="120" height="120" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>120 px</b>home screen @2x</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="87" height="87" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>87 px</b>settings @3x</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="60" height="60" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>60 px</b>home screen @1x</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="40" height="40" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>40 px</b>spotlight</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico" width="29" height="29" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>29 px</b>settings @1x</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============ BOARD 3 — home screen context ============ -->
+      <section class="board">
+        <h2>3 · On a home screen</h2>
+        <p>
+          The real test: does a near-black tile survive next to native apps, on a dark wallpaper, on a light one, and
+          on a loud one? The neighbours below are flat colour stubs — this repo ships no third-party logos.
+        </p>
+        <div class="row" style="align-items: flex-start">
+          <figure>
+            <div class="home home--night">
+              <div class="app">
+                <svg class="ico" width="60" height="60" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+                <span>BookTracker</span>
+              </div>
+              <div class="app"><div class="stub" style="background: #30d158"></div><span>Notes</span></div>
+              <div class="app"><div class="stub" style="background: #ff9f0a"></div><span>Podcasts</span></div>
+              <div class="app"><div class="stub" style="background: #5e5ce6"></div><span>Files</span></div>
+            </div>
+            <figcaption><b>Dark wallpaper</b>the ribbon carries the tile</figcaption>
+          </figure>
+          <figure>
+            <div class="home home--day">
+              <div class="app">
+                <svg class="ico" width="60" height="60" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+                <span>BookTracker</span>
+              </div>
+              <div class="app"><div class="stub" style="background: #f2f2f7; border: 1px solid #d8d8dd"></div><span>Notes</span></div>
+              <div class="app"><div class="stub" style="background: #ff453a"></div><span>Podcasts</span></div>
+              <div class="app"><div class="stub" style="background: #0a84ff"></div><span>Files</span></div>
+            </div>
+            <figcaption><b>Light wallpaper</b>reads as a deliberate dark app</figcaption>
+          </figure>
+          <figure>
+            <div class="home home--busy">
+              <div class="app">
+                <svg class="ico" width="60" height="60" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+                <span>BookTracker</span>
+              </div>
+              <div class="app"><div class="stub" style="background: #f5f5f7"></div><span>Notes</span></div>
+              <div class="app"><div class="stub" style="background: #1c1c1e"></div><span>Podcasts</span></div>
+              <div class="app"><div class="stub" style="background: #ff9f0a"></div><span>Files</span></div>
+            </div>
+            <figcaption><b>Busy wallpaper</b>the dark field is the separation</figcaption>
+          </figure>
+        </div>
+        <div class="note">
+          On a dark wallpaper a dark tile risks dissolving. It does not here, because the two pages are near-white
+          <code>#ffffff → #cfcfd6</code> and occupy 62% of the canvas width — the tile's edge may blur into the
+          wallpaper, but the <em>mark</em> never does. That is the same trade every dark iOS icon makes.
+        </div>
+      </section>
+
+      <!-- ============ BOARD 4 — maskable ============ -->
+      <section class="board">
+        <h2>4 · Maskable variant</h2>
+        <p>
+          Android crops the icon to a shape the OEM chooses. Everything outside the inner 80% may be cut. The
+          <span style="color: #ff453a">red circle</span> is the guaranteed-visible zone; the
+          <span style="color: #30d158">green square</span> is the 80% box the spec draws it inside.
+        </p>
+        <div class="row">
+          <figure>
+            <div class="safe">
+              <svg class="ico ico--square" width="240" height="240" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile-maskable" width="512" height="512" /></svg>
+              <div class="overlay"></div>
+            </div>
+            <figcaption><b>Safe zone check</b>glyph at 90%</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico ico--circle" width="240" height="240" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile-maskable" width="512" height="512" /></svg>
+            <figcaption><b>Circle mask</b>Pixel</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico ico--rrect" width="240" height="240" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile-maskable" width="512" height="512" /></svg>
+            <figcaption><b>Rounded-rect mask</b>Samsung</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico ico--square" width="240" height="240" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>Standard tile</b>for comparison — glyph at 100%</figcaption>
+          </figure>
+        </div>
+        <div class="legend">
+          <span class="c-circle"><i></i>80% safe circle</span>
+          <span class="c-square"><i></i>80% safe square</span>
+        </div>
+        <div class="note">
+          <b>Deviation from the issue.</b> The brief suggests the maskable background be "typically the accent
+          colour". It should not be — the standard tile's background is <em>already</em> a solid field that runs to
+          all four edges, so the maskable variant needs no new background. Swapping in accent blue would ship two
+          different-looking icons for the same app depending on the platform. The only difference between
+          <code>icon-512.png</code> and <code>icon-maskable-512.png</code> is the glyph scale: 100% → 90%.
+          At 90% no point of the glyph sits more than 170px from the centre, inside the 204.8px safe radius.
+        </div>
+      </section>
+
+      <!-- ============ BOARD 5 — legibility ============ -->
+      <section class="board">
+        <h2>5 · Legibility stress tests</h2>
+        <p>
+          Grayscale checks the mark does not depend on the blue. Blur checks the silhouette at a glance. Threshold
+          checks it survives being crushed to two tones.
+        </p>
+        <div class="row">
+          <figure>
+            <svg class="ico f-gray" width="120" height="120" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>Grayscale</b>shape still reads</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico f-blur" width="120" height="120" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>Blurred</b>silhouette at a glance</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico f-thresh" width="120" height="120" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>Thresholded</b>two-tone</figcaption>
+          </figure>
+          <figure>
+            <svg class="ico f-blur" width="40" height="40" viewBox="0 0 512 512" aria-hidden="true"><use href="#tile" width="512" height="512" /></svg>
+            <figcaption><b>40 px, blurred</b>worst case</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============ BOARD 6 — splash screens ============ -->
+      <section class="board">
+        <h2>6 · Splash screens</h2>
+        <p>
+          Splash is the glyph alone on a solid field — <b>no tile, no rounded corners, no wordmark</b>. It appears
+          for a few hundred milliseconds before the app shell paints, so it must be the same colour as the shell or
+          the launch flashes. The glyph sits at 45% of the short edge, nudged 4% above centre so it reads as
+          optically centred.
+        </p>
+        <div class="row">
+          <figure>
+            <div class="splash splash--dark">
+              <svg viewBox="0 0 512 512" aria-hidden="true"><use href="#glyph" width="512" height="512" /></svg>
+            </div>
+            <figcaption><b>Dark</b>#0a0a0b · white pages</figcaption>
+          </figure>
+          <figure>
+            <div class="splash splash--light">
+              <svg viewBox="0 0 512 512" aria-hidden="true"><use href="#glyph-light" width="512" height="512" /></svg>
+            </div>
+            <figcaption><b>Light</b>#ffffff · ink pages</figcaption>
+          </figure>
+          <figure style="flex: 1; min-width: 380px; text-align: left">
+            <table>
+              <thead>
+                <tr>
+                  <th>Portrait</th>
+                  <th>Logical</th>
+                  <th>Devices</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>750×1334</code></td><td>375×667 @2x</td><td>SE 2/3, 6–8</td></tr>
+                <tr><td><code>828×1792</code></td><td>414×896 @2x</td><td>XR, 11</td></tr>
+                <tr><td><code>1125×2436</code></td><td>375×812 @3x</td><td>X, XS, 11 Pro</td></tr>
+                <tr><td><code>1170×2532</code></td><td>390×844 @3x</td><td>12, 13, 14</td></tr>
+                <tr><td><code>1179×2556</code></td><td>393×852 @3x</td><td>14 Pro, 15, 16</td></tr>
+                <tr><td><code>1242×2208</code></td><td>414×736 @3x</td><td>6+ – 8+</td></tr>
+                <tr><td><code>1242×2688</code></td><td>414×896 @3x</td><td>XS Max, 11 Pro Max</td></tr>
+                <tr><td><code>1284×2778</code></td><td>428×926 @3x</td><td>12/13 Pro Max, 14 Plus</td></tr>
+                <tr><td><code>1290×2796</code></td><td>430×932 @3x</td><td>14/15 Pro Max, 16 Plus</td></tr>
+              </tbody>
+            </table>
+            <figcaption style="text-align: left">9 sizes × 2 themes = 18 files</figcaption>
+          </figure>
+        </div>
+        <div class="note">
+          The light splash <b>inverts the glyph</b> — pages go to <code>#1c1c1e</code> and the ribbon to
+          <code>#007aff</code>, exactly the light-mode values of <code>--primary</code> and <code>--accent</code> in
+          <code>globals.css</code>. White pages on a white field would be an empty screen with a floating blue
+          ribbon.
+        </div>
+      </section>
+
+      <!-- ============ BOARD 7 — colour spec ============ -->
+      <section class="board">
+        <h2>7 · Colour</h2>
+        <p>Every value is already in <code>globals.css</code>. The gradients are shading of existing tokens, not new colours.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Value</th>
+              <th>Token</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Tile field, top</td>
+              <td><span class="swatch" style="background: #17171c"></span><code>#17171c</code></td>
+              <td>lift of <code>--background</code></td>
+            </tr>
+            <tr>
+              <td>Tile field, bottom</td>
+              <td><span class="swatch" style="background: #0a0a0b"></span><code>#0a0a0b</code></td>
+              <td><code>--background</code></td>
+            </tr>
+            <tr>
+              <td>Accent bloom</td>
+              <td><span class="swatch" style="background: #0a84ff"></span><code>#0a84ff</code> @ 22% → 0%</td>
+              <td><code>--accent</code></td>
+            </tr>
+            <tr>
+              <td>Pages, top</td>
+              <td><span class="swatch" style="background: #ffffff"></span><code>#ffffff</code></td>
+              <td>lift of <code>--primary</code></td>
+            </tr>
+            <tr>
+              <td>Pages, bottom</td>
+              <td><span class="swatch" style="background: #cfcfd6"></span><code>#cfcfd6</code></td>
+              <td>shade of <code>--primary</code></td>
+            </tr>
+            <tr>
+              <td>Ribbon, top</td>
+              <td><span class="swatch" style="background: #4ba7ff"></span><code>#4ba7ff</code></td>
+              <td>lift of <code>--accent</code></td>
+            </tr>
+            <tr>
+              <td>Ribbon, bottom</td>
+              <td><span class="swatch" style="background: #0a6fe0"></span><code>#0a6fe0</code></td>
+              <td>≈ <code>--accent-pressed</code></td>
+            </tr>
+            <tr>
+              <td>Splash, light — pages</td>
+              <td><span class="swatch" style="background: #1c1c1e"></span><code>#1c1c1e</code></td>
+              <td><code>--primary</code> (light)</td>
+            </tr>
+            <tr>
+              <td>Splash, light — ribbon</td>
+              <td><span class="swatch" style="background: #007aff"></span><code>#007aff</code></td>
+              <td><code>--accent</code> (light)</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============ BOARD 8 — SVG source ============ -->
+      <section class="board">
+        <h2>8 · SVG source</h2>
+        <p>
+          Canvas is <code>512×512</code>. The glyph's bounding box is <code>316×222</code> centred at
+          <code>(256, 256)</code> — 62% of the canvas width, inside Apple's optical grid. Shipped verbatim as
+          <code>icon.svg</code>; <code>icon-maskable.svg</code> is the same file with the glyph group wrapped in
+          <code>scale(0.9)</code> about the centre.
+        </p>
+        <pre>&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"&gt;
+  &lt;defs&gt;
+    &lt;linearGradient id="bg" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse"&gt;
+      &lt;stop offset="0" stop-color="#17171c"/&gt;
+      &lt;stop offset="1" stop-color="#0a0a0b"/&gt;
+    &lt;/linearGradient&gt;
+    &lt;radialGradient id="glow" cx="256" cy="188" r="286" gradientUnits="userSpaceOnUse"&gt;
+      &lt;stop offset="0" stop-color="#0a84ff" stop-opacity="0.22"/&gt;
+      &lt;stop offset="1" stop-color="#0a84ff" stop-opacity="0"/&gt;
+    &lt;/radialGradient&gt;
+    &lt;linearGradient id="page" x1="256" y1="174" x2="256" y2="348" gradientUnits="userSpaceOnUse"&gt;
+      &lt;stop offset="0" stop-color="#ffffff"/&gt;
+      &lt;stop offset="1" stop-color="#cfcfd6"/&gt;
+    &lt;/linearGradient&gt;
+    &lt;linearGradient id="ribbon" x1="256" y1="196" x2="256" y2="396" gradientUnits="userSpaceOnUse"&gt;
+      &lt;stop offset="0" stop-color="#4ba7ff"/&gt;
+      &lt;stop offset="1" stop-color="#0a6fe0"/&gt;
+    &lt;/linearGradient&gt;
+  &lt;/defs&gt;
+
+  &lt;rect width="512" height="512" fill="url(#bg)"/&gt;
+  &lt;rect width="512" height="512" fill="url(#glow)"/&gt;
+
+  &lt;g transform="translate(0 -29)"&gt;
+    &lt;!-- left page --&gt;
+    &lt;path d="M248 210 114 178q-16-4-16 12v104q0 16 16 20l134 34Z" fill="url(#page)"/&gt;
+    &lt;!-- right page (mirrored) --&gt;
+    &lt;path d="M248 210 114 178q-16-4-16 12v104q0 16 16 20l134 34Z"
+          fill="url(#page)" transform="translate(512 0) scale(-1 1)"/&gt;
+    &lt;!-- bookmark ribbon, doubles as the spine --&gt;
+    &lt;path d="M232 208c0-7 5-12 12-12h24c7 0 12 5 12 12v188l-24-24-24 24Z" fill="url(#ribbon)"/&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;</pre>
+      </section>
+    </div>
+  </body>
+</html>
