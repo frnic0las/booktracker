@@ -34,11 +34,29 @@ export function toHttps(url: string): string {
   return url.replace(/^http:\/\//, "https://");
 }
 
+export interface SearchBooksOptions {
+  langRestrict?: string;
+  inauthor?: string;
+}
+
 export async function searchBooks(
   query: string,
+  options?: SearchBooksOptions,
 ): Promise<GoogleBooksSearchResponse> {
   const apiKey = getApiKey();
-  const url = `${GOOGLE_BOOKS_API_BASE}/volumes?q=${encodeURIComponent(query)}&key=${apiKey}`;
+  let q = encodeURIComponent(query);
+
+  if (options?.inauthor) {
+    q += `+inauthor:${encodeURIComponent(options.inauthor)}`;
+  }
+
+  let url = `${GOOGLE_BOOKS_API_BASE}/volumes?q=${q}`;
+
+  if (options?.langRestrict) {
+    url += `&langRestrict=${encodeURIComponent(options.langRestrict)}`;
+  }
+
+  url += `&key=${apiKey}`;
 
   try {
     const response = await fetch(url);

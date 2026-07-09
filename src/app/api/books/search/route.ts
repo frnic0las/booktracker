@@ -18,8 +18,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing required query parameter: q" }, { status: 400 });
   }
 
+  const lang = request.nextUrl.searchParams.get("lang")?.trim() || undefined;
+  const author = request.nextUrl.searchParams.get("author")?.trim() || undefined;
+
+  if (lang && !/^[a-z]{2}$/.test(lang)) {
+    return NextResponse.json({ error: "Invalid query parameter: lang" }, { status: 400 });
+  }
+
   try {
-    const res = await searchBooks(q);
+    const res = await searchBooks(q, { langRestrict: lang, inauthor: author });
     const results: BookSearchResult[] = (res.items ?? [])
       .slice(0, 20)
       .map(mapVolumeToSearchResult);
