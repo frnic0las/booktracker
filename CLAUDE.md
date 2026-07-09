@@ -117,9 +117,7 @@ booktracker/
 │       │   └── server.ts
 │       └── setup.ts
 ├── docs/
-│   ├── DESIGN_SYSTEM.md
-│   ├── ARCHITECTURE.md
-│   └── DATABASE.md
+│   └── mockups/          # Per-issue mockups + component mapping
 ├── drizzle/              # Generated migrations
 ├── scripts/
 │   └── seed.ts
@@ -231,7 +229,7 @@ VERCEL_EMAIL=                   # Must match git config user.email
 - NEVER add placeholder data or mock content. Only display real data from Turso/Google Books.
 - NEVER skip error handling on API calls or database queries.
 - NEVER expose GOOGLE_BOOKS_API_KEY or TURSO_AUTH_TOKEN to the client.
-- ALWAYS check the design system (`docs/DESIGN_SYSTEM.md`) before creating UI components.
+- ALWAYS check the design tokens (`@theme` block in `src/app/globals.css`) and the component mapping in the `docs/mockups/` READMEs before creating UI components.
 - ALWAYS filter queries by user_id — there is no RLS safety net.
 - ALWAYS search existing code patterns before implementing something new.
 - ALWAYS use Server Components unless client interactivity is required.

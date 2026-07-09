@@ -43,7 +43,7 @@ Your review runs in a fresh context — you have no bias toward the code being r
 
 ### Design System Compliance
 
-- Does the frontend match `docs/DESIGN_SYSTEM.md`?
+- Does the frontend use the design tokens from the `@theme` block in `src/app/globals.css`?
 - Are Tailwind theme tokens used (not hardcoded values)?
 - Is dark/light mode handled correctly?
 - Are touch targets ≥ 44px?

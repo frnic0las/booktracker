@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 Create a new React component for: $ARGUMENTS
 
-1. Read `docs/DESIGN_SYSTEM.md` to understand the visual conventions
+1. Read the `@theme` block in `src/app/globals.css` to understand the visual conventions
 2. Determine if this is a page component (`src/app/`) or a reusable component (`src/components/`)
 3. Check existing components for similar patterns: `ls src/components/`
 4. Create the component file in PascalCase: `<ComponentName>.tsx`

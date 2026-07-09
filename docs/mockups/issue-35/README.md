@@ -313,7 +313,8 @@ Note `414×896` appears twice — once at @2x (XR, 11) and once at @3x (XS Max, 
 - The issue states `public/icons/` and `public/manifest.json` "exist but contain only Next.js
   defaults". Neither exists on `main` as of this branch — `public/` holds five stock SVGs and
   nothing else. The implementation issue creates both from scratch.
-- `docs/DESIGN_SYSTEM.md` is referenced by `CLAUDE.md` but does not exist in the repo. The tokens
-  used here were read from `src/app/globals.css`, which is the de-facto design system.
+- The tokens used here were read from the `@theme` block in `src/app/globals.css`, which is the
+  design system of record. (An earlier draft of this note flagged a dead `docs/DESIGN_SYSTEM.md`
+  reference in `CLAUDE.md`; that reference was removed in #48.)
 - Apple no longer requires landscape splash screens for a portrait-locked PWA
   (`"orientation": "portrait"`), so none are specified.
