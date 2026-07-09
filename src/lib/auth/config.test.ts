@@ -21,8 +21,20 @@ function buildSession(): Session {
   };
 }
 
+describe("authConfig", () => {
+  // Auth.js infers trustHost from AUTH_URL, but an empty AUTH_URL yields `false`
+  // and every /api/auth route then fails with UntrustedHost.
+  it("trusts the forwarded host regardless of AUTH_URL", () => {
+    expect(authConfig.trustHost).toBe(true);
+  });
+
+  it("signs users in through the /login page", () => {
+    expect(authConfig.pages.signIn).toBe("/login");
+  });
+});
+
 describe("authConfig.callbacks.authorized", () => {
-  it.each(["/library", "/search", "/lists", "/profile"])(
+  it.each(["/novels", "/non-fiction", "/account", "/search", "/books"])(
     "denies a logged-out user hitting the protected path %s",
     async (pathname) => {
       const result = await authorized({
@@ -34,7 +46,7 @@ describe("authConfig.callbacks.authorized", () => {
     },
   );
 
-  it.each(["/library", "/library/42", "/search", "/lists", "/profile"])(
+  it.each(["/novels", "/non-fiction", "/account", "/search", "/books", "/books/42"])(
     "allows a logged-in user hitting the protected path %s",
     async (pathname) => {
       const result = await authorized({
