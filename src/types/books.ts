@@ -60,6 +60,7 @@ export interface BookStats {
   total: number;
   novels: CategoryStats;
   non_fiction: CategoryStats;
+  totalPagesRead: number;
 }
 
 // --- Google Books API v1 response shapes ---
