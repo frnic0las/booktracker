@@ -34,11 +34,35 @@ export function toHttps(url: string): string {
   return url.replace(/^http:\/\//, "https://");
 }
 
+export interface SearchBooksOptions {
+  langRestrict?: string;
+  inauthor?: string;
+}
+
 export async function searchBooks(
   query: string,
+  options?: SearchBooksOptions,
 ): Promise<GoogleBooksSearchResponse> {
   const apiKey = getApiKey();
-  const url = `${GOOGLE_BOOKS_API_BASE}/volumes?q=${encodeURIComponent(query)}&key=${apiKey}`;
+  let q = encodeURIComponent(query);
+
+  if (options?.inauthor) {
+    // Google Books has no escape syntax inside a quoted phrase, so double
+    // quotes in the value are dropped rather than escaped.
+    const author = options.inauthor.replace(/"/g, "").trim();
+
+    if (author) {
+      q += `+inauthor:${encodeURIComponent(`"${author}"`)}`;
+    }
+  }
+
+  let url = `${GOOGLE_BOOKS_API_BASE}/volumes?q=${q}`;
+
+  if (options?.langRestrict) {
+    url += `&langRestrict=${encodeURIComponent(options.langRestrict)}`;
+  }
+
+  url += `&key=${apiKey}`;
 
   try {
     const response = await fetch(url);
