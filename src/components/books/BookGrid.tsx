@@ -38,6 +38,8 @@ export function BookGrid({ entries, emptyTitle, emptyDescription, addHref }: Boo
           title={entry.book.title}
           authors={entry.book.authors}
           thumbnail={entry.book.thumbnail}
+          rating={entry.rating}
+          abandoned={entry.abandoned}
         />
       ))}
     </div>

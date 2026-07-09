@@ -9,6 +9,8 @@ function buildProps(overrides: Partial<BookCardProps> = {}): BookCardProps {
     title: "The Hobbit",
     authors: ["J.R.R. Tolkien"],
     thumbnail: "https://books.google.com/books/content?id=zyTCAlFPjgYC&img=1",
+    rating: null,
+    abandoned: false,
     ...overrides,
   };
 }
@@ -54,5 +56,33 @@ describe("BookCard", () => {
     render(<BookCard {...buildProps({ authors: [] })} />);
 
     expect(screen.queryByText("J.R.R. Tolkien")).toBeNull();
+  });
+
+  it("renders the rating chip when a rating is set", () => {
+    render(<BookCard {...buildProps({ rating: "good" })} />);
+
+    expect(screen.getByText("👍")).toBeTruthy();
+    expect(screen.getByText("Rated good")).toBeTruthy();
+  });
+
+  it("renders no rating chip when rating is null", () => {
+    render(<BookCard {...buildProps({ rating: null })} />);
+
+    expect(screen.queryByText("👍")).toBeNull();
+    expect(screen.queryByText(/^Rated/)).toBeNull();
+  });
+
+  it("renders the DNF strip when the book is abandoned", () => {
+    render(<BookCard {...buildProps({ abandoned: true })} />);
+
+    expect(screen.getByText("DNF")).toBeTruthy();
+    expect(screen.getByText("Did not finish")).toBeTruthy();
+  });
+
+  it("renders no DNF strip when the book is not abandoned", () => {
+    render(<BookCard {...buildProps({ abandoned: false })} />);
+
+    expect(screen.queryByText("DNF")).toBeNull();
+    expect(screen.queryByText("Did not finish")).toBeNull();
   });
 });
