@@ -47,7 +47,13 @@ export async function searchBooks(
   let q = encodeURIComponent(query);
 
   if (options?.inauthor) {
-    q += `+inauthor:${encodeURIComponent(options.inauthor)}`;
+    // Google Books has no escape syntax inside a quoted phrase, so double
+    // quotes in the value are dropped rather than escaped.
+    const author = options.inauthor.replace(/"/g, "").trim();
+
+    if (author) {
+      q += `+inauthor:${encodeURIComponent(`"${author}"`)}`;
+    }
   }
 
   let url = `${GOOGLE_BOOKS_API_BASE}/volumes?q=${q}`;
