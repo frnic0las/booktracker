@@ -35,13 +35,13 @@ git checkout -b feature/$ARGUMENTS-<short-description>
 ### If backend-dev or frontend-dev:
 
 1. Read existing related code to understand current patterns
-2. If frontend: check `docs/DESIGN_SYSTEM.md` first, then check for mockups in `docs/mockups/issue-$ARGUMENTS/`
+2. If frontend: check the `@theme` block in `src/app/globals.css` first, then check for mockups in `docs/mockups/issue-$ARGUMENTS/`
 3. Implement the changes following CLAUDE.md conventions
 4. Write tests using the test-writer agent
 
 ### If ui-designer:
 
-1. Read `docs/DESIGN_SYSTEM.md` before starting
+1. Read the `@theme` block in `src/app/globals.css` before starting
 2. Create the folder `docs/mockups/issue-$ARGUMENTS/` — MANDATORY
 3. Produce HTML/CSS mockups in `docs/mockups/issue-$ARGUMENTS/mockup.html`
 4. Include a `docs/mockups/issue-$ARGUMENTS/README.md` with component mapping and Tailwind classes

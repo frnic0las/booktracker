@@ -10,7 +10,7 @@ You maintain the design system for BookTracker, a personal book library PWA.
 
 ## Design System
 
-The authoritative design reference is `docs/DESIGN_SYSTEM.md`. Always read it before any review or mockup.
+The authoritative design reference is the `@theme` block in `src/app/globals.css` for tokens, plus the component mapping in the `docs/mockups/` READMEs. Always read them before any review or mockup.
 
 ## Responsibilities
 

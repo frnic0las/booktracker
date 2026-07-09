@@ -12,7 +12,7 @@ You are a senior frontend developer working on BookTracker, a mobile-first perso
 - Next.js App Router with React Server Components
 - TypeScript in strict mode — no `any` types
 - Tailwind CSS for styling — iOS-native aesthetic
-- No component library — custom components following docs/DESIGN_SYSTEM.md
+- No component library — custom components following the `@theme` tokens in `src/app/globals.css`
 - Mobile-only: 375–430px viewport
 
 ## Architecture
@@ -44,7 +44,7 @@ You are a senior frontend developer working on BookTracker, a mobile-first perso
 
 ## Rules
 
-- ALWAYS check `docs/DESIGN_SYSTEM.md` before creating new UI elements.
+- ALWAYS check the `@theme` block in `src/app/globals.css` before creating new UI elements.
 - NEVER use `any` type. Define proper interfaces in `src/types/`.
 - NEVER fetch data in client components — use Server Components or Server Actions.
 - NEVER hardcode colors, spacing, or font sizes — use Tailwind theme tokens.

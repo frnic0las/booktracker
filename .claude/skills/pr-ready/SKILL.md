@@ -34,7 +34,7 @@ Fix any failures before proceeding.
 
 ## 4. Design system review
 
-- [ ] UI matches `docs/DESIGN_SYSTEM.md`
+- [ ] UI uses the design tokens from the `@theme` block in `src/app/globals.css`
 - [ ] Dark/light mode works
 - [ ] Touch targets ≥ 44px
 - [ ] No hardcoded colors/spacing — Tailwind tokens only

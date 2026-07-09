@@ -36,11 +36,11 @@ All tokens are inherited verbatim from issue #8 — see that README for the full
 | `--r-pill` (999px) | Status/category badges, add-btn, tabs |
 
 **Destructive red** `#ff453a` (iOS system red) is used for the *Remove from library*
-and *Log out* actions. It is not a library token — add it as `--color-destructive`
-when these actions are implemented.
+and *Log out* actions.
 
-> **New token to add:** `--color-destructive: #ff453a` (dark) / `#ff3b30` (light),
-> Tailwind `text-destructive` / `border-destructive`. Only used for Remove & Logout.
+> **Token already exists:** `--color-destructive: #ff453a` (dark) / `#ff3b30` (light),
+> Tailwind `text-destructive` / `border-destructive`. It was added to
+> `src/app/globals.css` in #24 (book detail page).
 
 ---
 
@@ -352,8 +352,9 @@ A filter change with an empty `q` must not fire a request: `q` stays required.
 
 ## Notes for implementation
 
-- `--color-destructive` (already flagged above for Remove/Logout) is reused for the
-  invalid-ISO hint. Still the only place a new token is needed.
+- `--color-destructive` (already used for Remove/Logout) is reused for the
+  invalid-ISO hint. It has existed in `src/app/globals.css` since #24 — no new
+  tokens are needed.
 - The chip row and the language chips are both `<button>`s, never `<a>` — no
   navigation, no URL state. Filters are component state, not search params.
 - Result counts in the boards are illustrative only; the app renders whatever the
