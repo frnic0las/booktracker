@@ -8,15 +8,14 @@ import { users } from "../src/lib/db/schema";
 
 const SALT_ROUNDS = 10;
 
-async function seed(): Promise<void> {
-  const email = process.env.SEED_USER_EMAIL;
-  const password = process.env.SEED_USER_PASSWORD;
+// SEED_USER_EMAIL / SEED_USER_PASSWORD override these defaults when set.
+// `.env.local.example` ships them empty, so an empty value must fall back too.
+const DEFAULT_SEED_USER_EMAIL = "test@booktracker.app";
+const DEFAULT_SEED_USER_PASSWORD = "booktracker";
 
-  if (!email || !password) {
-    throw new Error(
-      "Missing required environment variables: SEED_USER_EMAIL, SEED_USER_PASSWORD",
-    );
-  }
+async function seed(): Promise<void> {
+  const email = process.env.SEED_USER_EMAIL || DEFAULT_SEED_USER_EMAIL;
+  const password = process.env.SEED_USER_PASSWORD || DEFAULT_SEED_USER_PASSWORD;
 
   try {
     const [existingUser] = await db
