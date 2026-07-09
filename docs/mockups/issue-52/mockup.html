@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #52 · Account hero stat: pages read</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Maps 1:1 to the @theme block in src/app/globals.css.
+         No new token is introduced by this issue.
+         ============================================================ */
+      :root {
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        --accent: #0a84ff;
+        --reading: #ff9f0a;
+        --read: #30d158;
+        --want: #5e5ce6;
+      }
+
+      /* Light-mode token set, applied only inside .light-scope boards.
+         Board 5 shows both themes side by side, so this cannot be a
+         prefers-color-scheme media query. */
+      .light-scope {
+        --bg: #ffffff;
+        --surface-1: #f2f2f7;
+        --surface-2: #ffffff;
+        --separator: #d8d8dd;
+
+        --text-primary: #1c1c1e;
+        --text-secondary: #6b6b73;
+        --text-tertiary: #a1a1aa;
+
+        --accent: #007aff;
+        --reading: #f59e0b;
+        --read: #28a745;
+        --want: #5856d6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 40px 24px 80px;
+        background: #050506;
+        color: #f5f5f7;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---------- Documentation chrome (not part of the app) ---------- */
+
+      .doc {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      .doc h1 {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+
+      .doc .lede {
+        color: #a1a1aa;
+        font-size: 15px;
+        line-height: 1.55;
+        margin: 0 0 48px;
+        max-width: 68ch;
+      }
+
+      .board {
+        margin: 0 0 64px;
+      }
+
+      .board > h2 {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #6b6b73;
+        margin: 0 0 6px;
+      }
+
+      .board > h3 {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin: 0 0 10px;
+      }
+
+      .board > p {
+        color: #a1a1aa;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0 0 24px;
+        max-width: 68ch;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 6px;
+        vertical-align: 3px;
+        margin-left: 8px;
+      }
+
+      .badge-pick {
+        background: rgba(48, 209, 88, 0.15);
+        color: #30d158;
+      }
+
+      .badge-reject {
+        background: rgba(196, 114, 106, 0.15);
+        color: #c4726a;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
+        align-items: flex-start;
+      }
+
+      .specimen {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .specimen > figcaption {
+        font-size: 12px;
+        color: #6b6b73;
+        font-weight: 600;
+      }
+
+      /* ---------- Device frame ---------- */
+
+      .device {
+        width: 375px;
+        background: var(--bg);
+        border: 1px solid #2a2a2e;
+        border-radius: 24px;
+        overflow: hidden;
+        flex: none;
+      }
+
+      .device-430 {
+        width: 430px;
+      }
+
+      /* Bare card specimens sit on the app background without a frame. */
+      .plate {
+        width: 375px;
+        background: var(--bg);
+        border-radius: 16px;
+        padding: 16px;
+        flex: none;
+      }
+
+      /* ============================================================
+         App surface — every rule below has a Tailwind equivalent,
+         listed in README.md.
+         ============================================================ */
+
+      .screen {
+        padding: 12px 16px 24px;
+      }
+
+      .screen-title {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        margin: 8px 0 20px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* --- The hero card --- */
+
+      .hero {
+        border: 1px solid var(--separator);
+        border-radius: 16px;
+        background: var(--surface-1);
+      }
+
+      /* Two equal columns split by a hairline. grid (not flex) so a long
+         number in one column cannot steal width from the other. */
+      .hero-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .hero-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 16px;
+        min-width: 0;
+      }
+
+      .hero-cell + .hero-cell {
+        border-left: 1px solid var(--separator);
+      }
+
+      /* Fixed 40px box, text bottom-aligned. This aligns the two LABELS
+         exactly (equal boxes, equal start), and bottom-aligns the two line
+         boxes. It does NOT align the two baselines: with line-height:1 the
+         baseline sits (fs - ascent + descent)/2 above the box bottom, which
+         scales with font-size. The 28px numeral therefore rests ~1px below
+         the 36px one. Accepted — see README. */
+      .stat-value {
+        display: flex;
+        align-items: flex-end;
+        height: 40px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .stat-value-primary {
+        font-size: 36px;
+        font-weight: 800;
+        color: var(--text-primary);
+      }
+
+      .stat-value-secondary {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-secondary);
+      }
+
+      .stat-label {
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+      }
+
+      /* --- Rejected alternative: two free-standing cards --- */
+
+      .hero-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .hero-pair > .hero {
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* --- Category cards (context only — unchanged by this issue) --- */
+
+      .section-label {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-tertiary);
+        margin: 0 0 8px 4px;
+      }
+
+      .list {
+        border: 1px solid var(--separator);
+        border-radius: 16px;
+        background: var(--surface-1);
+        overflow: hidden;
+      }
+
+      .list-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+      }
+
+      .list-row + .list-row {
+        border-top: 1px solid var(--separator);
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        flex: none;
+      }
+
+      .dot-reading {
+        background: var(--reading);
+      }
+      .dot-read {
+        background: var(--read);
+      }
+      .dot-want {
+        background: var(--want);
+      }
+
+      .list-row-label {
+        flex: 1;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      .list-row-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---------- Spec tables ---------- */
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid #2a2a2e;
+        vertical-align: top;
+      }
+
+      th {
+        color: #6b6b73;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+      }
+
+      td {
+        color: #d4d4d8;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        font-size: 12px;
+        color: #f5f5f7;
+        background: #202024;
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      .note {
+        border-left: 2px solid #0a84ff;
+        padding: 2px 0 2px 14px;
+        margin: 24px 0 0;
+        color: #a1a1aa;
+        font-size: 13.5px;
+        line-height: 1.65;
+        max-width: 68ch;
+      }
+
+      .note strong {
+        color: #f5f5f7;
+      }
+
+      .note-warn {
+        border-left-color: #ff9f0a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      <h1>Issue #52 — Account hero stat</h1>
+      <p class="lede">
+        The Account hero currently carries one number: <em>Total books</em>. The stats API now
+        also returns <code>totalPagesRead</code> (completed, non-abandoned books only). This
+        board picks a layout for the second number, fixes its type scale, and specifies the
+        states. No new design token is introduced — every value below already exists in
+        <code>src/app/globals.css</code>.
+      </p>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 1</h2>
+        <h3>Split hero <span class="badge badge-pick">Recommended</span></h3>
+        <p>
+          One card, two columns, one hairline. The hero stays a single object in the layout, so
+          the page still opens on one hero and then the two category lists. Both numbers sit on
+          a shared baseline; <em>Pages read</em> reads as the lesser of the two through size
+          (28px vs 36px), weight (700 vs 800), and colour (<code>--secondary</code> vs
+          <code>--primary</code>) — three signals, no new colour.
+        </p>
+        <div class="row">
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>The card, isolated · 375px</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="device">
+              <div class="screen">
+                <h1 class="screen-title">Account</h1>
+                <div class="stack">
+                  <div class="hero">
+                    <div class="hero-split">
+                      <div class="hero-cell">
+                        <div class="stat-value stat-value-primary">42</div>
+                        <div class="stat-label">Total books</div>
+                      </div>
+                      <div class="hero-cell">
+                        <div class="stat-value stat-value-secondary">8,420</div>
+                        <div class="stat-label">Pages read</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p class="section-label">Novels</p>
+                    <div class="list">
+                      <div class="list-row">
+                        <span class="dot dot-reading"></span>
+                        <span class="list-row-label">Reading</span>
+                        <span class="list-row-value">2</span>
+                      </div>
+                      <div class="list-row">
+                        <span class="dot dot-read"></span>
+                        <span class="list-row-label">Read</span>
+                        <span class="list-row-value">18</span>
+                      </div>
+                      <div class="list-row">
+                        <span class="dot dot-want"></span>
+                        <span class="list-row-label">Want to Read</span>
+                        <span class="list-row-value">5</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p class="section-label">Non-Fiction</p>
+                    <div class="list">
+                      <div class="list-row">
+                        <span class="dot dot-reading"></span>
+                        <span class="list-row-label">Reading</span>
+                        <span class="list-row-value">1</span>
+                      </div>
+                      <div class="list-row">
+                        <span class="dot dot-read"></span>
+                        <span class="list-row-label">Read</span>
+                        <span class="list-row-value">12</span>
+                      </div>
+                      <div class="list-row">
+                        <span class="dot dot-want"></span>
+                        <span class="list-row-label">Want to Read</span>
+                        <span class="list-row-value">4</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>In page context · 375px</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 2</h2>
+        <h3>Two free-standing cards <span class="badge badge-reject">Rejected</span></h3>
+        <p>
+          The issue's second option, rejected on hierarchy. Two identical side-by-side cards say
+          the two numbers matter equally, which contradicts the brief — and they break the page's
+          rhythm of <em>one hero, then two lists</em>. The width cost is real but minor: a 12px
+          gutter and two extra borders take each column's content from 137.5px to 131.5px at
+          375px. Six pixels would not decide this on its own. Shown here for the record.
+        </p>
+        <div class="row">
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero-pair">
+                <div class="hero">
+                  <div class="stat-value stat-value-primary">42</div>
+                  <div class="stat-label">Total books</div>
+                </div>
+                <div class="hero">
+                  <div class="stat-value stat-value-secondary">8,420</div>
+                  <div class="stat-label">Pages read</div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Two cards · 375px</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Split hero, same width, for comparison</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 3</h2>
+        <h3>States</h3>
+        <p>
+          <code>totalPagesRead</code> is a <code>SUM</code> over <code>books.page_count</code>,
+          which is nullable in the schema and absent from plenty of Google Books volumes. A user
+          with 40 finished books can still legitimately see <strong>0</strong>. The zero state is
+          therefore a normal state, not an empty state: it keeps the number, the label, and the
+          card geometry. Nothing is hidden, nothing collapses.
+        </p>
+        <div class="row">
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">0</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">0</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Empty library — both zero</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">40</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">0</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Books present, no page counts known</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">1</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">312</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Single book — labels stay plural</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">1,204</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">412,880</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Overflow stress — 6 digits at 375px</figcaption>
+          </figure>
+        </div>
+
+        <p class="note">
+          <strong>Why the numbers are grouped.</strong> <code>8420</code> renders as
+          <code>8,420</code> via <code>Intl.NumberFormat</code>. Page counts run four to six
+          digits and an ungrouped <code>412880</code> is measurably slower to read. The column is
+          also set in <code>tabular-nums</code> so the digits do not shift width between renders.
+        </p>
+
+        <p class="note note-warn">
+          <strong>Overflow.</strong> The <em>Pages read</em> cell has 137.5px of content width at
+          375px (343px card − 2px border − 32px padding − 1px rule, halved). Six digits plus a
+          comma at 28px tabular runs roughly 110px, so <code>412,880</code> fits with room left —
+          the specimen above is here to be checked in a browser rather than taken on trust. The
+          layout does not truncate or wrap: the cell is <code>min-w-0</code> with
+          <code>whitespace-nowrap</code>, and the grid gives each column a hard 1fr, so a runaway
+          value overflows the card rather than crushing its neighbour. Seven digits (a million
+          pages — roughly 3,000 finished books) is out of range for a single-user library, and no
+          defensive truncation is specified for it.
+        </p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 4</h2>
+        <h3>Viewport range</h3>
+        <p>
+          The card is fluid; only its inner columns change width. At 430px the two numbers drift
+          further apart, which is exactly what the hairline is there to hold together.
+        </p>
+        <div class="row">
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>375px — iPhone SE / 12 mini</figcaption>
+          </figure>
+
+          <figure class="specimen">
+            <div class="plate" style="width: 430px">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>430px — iPhone 15 Pro Max</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 5</h2>
+        <h3>Both themes</h3>
+        <p>
+          Dark is primary. Light is the same markup with the light token set — no class in the
+          component names a colour literal, so nothing needs a <code>dark:</code> variant.
+        </p>
+        <div class="row">
+          <figure class="specimen">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Dark — primary</figcaption>
+          </figure>
+
+          <figure class="specimen light-scope">
+            <div class="plate">
+              <div class="hero">
+                <div class="hero-split">
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-primary">42</div>
+                    <div class="stat-label">Total books</div>
+                  </div>
+                  <div class="hero-cell">
+                    <div class="stat-value stat-value-secondary">8,420</div>
+                    <div class="stat-label">Pages read</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Light</figcaption>
+          </figure>
+        </div>
+
+        <p class="note note-warn">
+          <strong>Pre-existing contrast debt, not introduced here.</strong> The
+          <code>Total books</code> label already uses <code>--tertiary</code>, which measures
+          <strong>3.42:1 on dark</strong> and <strong>2.30:1 on light</strong> against
+          <code>--surface-1</code> — under the 4.5:1 that WCAG AA asks of 13px text.
+          <code>Pages read</code> inherits the same label style for consistency, so this issue
+          neither worsens nor fixes it. Raising every label to <code>--secondary</code> would in
+          fact clear AA in both themes (7.05:1 and 4.73:1), but it touches every section label in
+          the app and belongs in its own issue. The stat <em>values</em> are fine:
+          <code>--secondary</code> at 28px/700 measures 7.05:1 dark and 4.73:1 light — past AA for
+          normal text, never mind the 3:1 large-text threshold it only has to meet.
+        </p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="board">
+        <h2>Board 6</h2>
+        <h3>Type &amp; colour spec</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Size / weight</th>
+              <th>Token</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total books — value</td>
+              <td>36px / 800</td>
+              <td><code>--color-primary</code></td>
+              <td><code>#f5f5f7</code></td>
+            </tr>
+            <tr>
+              <td>Pages read — value</td>
+              <td>28px / 700</td>
+              <td><code>--color-secondary</code></td>
+              <td><code>#a1a1aa</code></td>
+            </tr>
+            <tr>
+              <td>Both labels</td>
+              <td>13px / 600 · uppercase</td>
+              <td><code>--color-tertiary</code></td>
+              <td><code>#6b6b73</code></td>
+            </tr>
+            <tr>
+              <td>Card fill</td>
+              <td>—</td>
+              <td><code>--color-surface-1</code></td>
+              <td><code>#161618</code></td>
+            </tr>
+            <tr>
+              <td>Card border + column rule</td>
+              <td>1px</td>
+              <td><code>--color-separator</code></td>
+              <td><code>#2a2a2e</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="note">
+          <strong>Nothing new.</strong> Every row above is a token that already exists. The only
+          values this issue invents are geometric: the 40px baseline box, and 28px/700 for the
+          secondary numeral.
+        </p>
+      </section>
+    </div>
+  </body>
+</html>
