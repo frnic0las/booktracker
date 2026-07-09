@@ -150,7 +150,7 @@ export async function updateBookStatus(
       finishedAt = null;
     }
 
-    const abandoned = parsed.data.newStatus === "read" ? existing.abandoned : 0;
+    const abandoned = parsed.data.newStatus === "read" ? existing.abandoned : false;
 
     await db
       .update(userBooks)
@@ -246,7 +246,7 @@ export async function abandonBook(userBookId: string): Promise<ActionResult> {
       .update(userBooks)
       .set({
         status: "read",
-        abandoned: 1,
+        abandoned: true,
         finishedAt: now,
         startedAt: existing.startedAt ?? now,
         updatedAt: now,
@@ -262,7 +262,7 @@ export async function abandonBook(userBookId: string): Promise<ActionResult> {
 
 const updateBookRatingSchema = z.object({
   userBookId: z.string().min(1),
-  rating: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
+  rating: z.enum(["good", "average", "bad"]).nullable(),
 });
 
 export async function updateBookRating(

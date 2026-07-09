@@ -47,8 +47,8 @@ export const userBooks = sqliteTable(
     category: text("category", { enum: ["novel", "non_fiction"] })
       .notNull()
       .default("novel"),
-    rating: integer("rating"),
-    abandoned: integer("abandoned").notNull().default(0),
+    rating: text("rating", { enum: ["good", "average", "bad"] }),
+    abandoned: integer("abandoned", { mode: "boolean" }).notNull().default(false),
     notes: text("notes"),
     startedAt: integer("started_at", { mode: "timestamp" }),
     finishedAt: integer("finished_at", { mode: "timestamp" }),

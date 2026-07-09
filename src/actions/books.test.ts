@@ -121,7 +121,7 @@ function buildUserBookRow(overrides: Partial<UserBookRow> = {}): UserBookRow {
     status: "want_to_read",
     category: "novel",
     rating: null,
-    abandoned: 0,
+    abandoned: false,
     notes: null,
     startedAt: null,
     finishedAt: null,
@@ -345,11 +345,11 @@ describe("actions/books", () => {
       expect(setArg.finishedAt).toBeNull();
     });
 
-    it("resets abandoned to 0 when moving an abandoned 'read' book back to 'reading'", async () => {
+    it("clears the abandoned flag when moving an abandoned 'read' book back to 'reading'", async () => {
       vi.mocked(requireUserId).mockResolvedValue("user-1");
       const existing = buildUserBookRow({
         status: "read",
-        abandoned: 1,
+        abandoned: true,
         startedAt: new Date("2024-02-01T00:00:00.000Z"),
         finishedAt: new Date("2024-03-01T00:00:00.000Z"),
       });
@@ -359,14 +359,14 @@ describe("actions/books", () => {
       await updateBookStatus(existing.id, "reading");
 
       const setArg = set.mock.calls[0][0];
-      expect(setArg.abandoned).toBe(0);
+      expect(setArg.abandoned).toBe(false);
     });
 
     it("preserves abandoned when moving to 'read'", async () => {
       vi.mocked(requireUserId).mockResolvedValue("user-1");
       const existing = buildUserBookRow({
         status: "reading",
-        abandoned: 1,
+        abandoned: true,
         startedAt: new Date("2024-02-01T00:00:00.000Z"),
         finishedAt: null,
       });
@@ -376,7 +376,7 @@ describe("actions/books", () => {
       await updateBookStatus(existing.id, "read");
 
       const setArg = set.mock.calls[0][0];
-      expect(setArg.abandoned).toBe(1);
+      expect(setArg.abandoned).toBe(true);
     });
   });
 
@@ -488,7 +488,7 @@ describe("actions/books", () => {
 
       const setArg = set.mock.calls[0][0];
       expect(setArg.status).toBe("read");
-      expect(setArg.abandoned).toBe(1);
+      expect(setArg.abandoned).toBe(true);
       expect(setArg.finishedAt).toBeInstanceOf(Date);
       expect(setArg.startedAt).toBe(startedAt);
       expect(updateWhere).toHaveBeenCalledWith(expectedFilter);
@@ -500,7 +500,7 @@ describe("actions/books", () => {
     it("returns Unauthorized when there is no session", async () => {
       vi.mocked(requireUserId).mockResolvedValue(null);
 
-      const result = await updateBookRating("user-book-1", 2);
+      const result = await updateBookRating("user-book-1", "average");
 
       expect(result).toEqual({ success: false, error: "Unauthorized" });
       expect(mockedDb.select).not.toHaveBeenCalled();
@@ -510,7 +510,7 @@ describe("actions/books", () => {
       vi.mocked(requireUserId).mockResolvedValue("user-1");
       queueSelect([]);
 
-      const result = await updateBookRating("user-book-1", 2);
+      const result = await updateBookRating("user-book-1", "average");
 
       expect(result).toEqual({ success: false, error: "Not found" });
       expect(mockedDb.update).not.toHaveBeenCalled();
@@ -521,7 +521,7 @@ describe("actions/books", () => {
       const existing = buildUserBookRow({ status: "reading" });
       queueSelect([existing]);
 
-      const result = await updateBookRating(existing.id, 2);
+      const result = await updateBookRating(existing.id, "average");
 
       expect(result).toEqual({
         success: false,
@@ -536,21 +536,21 @@ describe("actions/books", () => {
       const [chain] = queueSelect([existing]);
       const { set, where: updateWhere } = mockUpdate();
 
-      const result = await updateBookRating(existing.id, 2);
+      const result = await updateBookRating(existing.id, "average");
 
       const expectedFilter = and(
         eq(userBooks.id, existing.id),
         eq(userBooks.userId, "user-1"),
       );
       expect(chain.where).toHaveBeenCalledWith(expectedFilter);
-      expect(set).toHaveBeenCalledWith(expect.objectContaining({ rating: 2 }));
+      expect(set).toHaveBeenCalledWith(expect.objectContaining({ rating: "average" }));
       expect(updateWhere).toHaveBeenCalledWith(expectedFilter);
       expect(result).toEqual({ success: true, data: undefined });
     });
 
     it("clears the rating with null on a 'read' book", async () => {
       vi.mocked(requireUserId).mockResolvedValue("user-1");
-      const existing = buildUserBookRow({ status: "read", rating: 3 });
+      const existing = buildUserBookRow({ status: "read", rating: "good" });
       queueSelect([existing]);
       const { set } = mockUpdate();
 

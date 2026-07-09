@@ -1,1 +1,0 @@
-ALTER TABLE `user_books` ADD `abandoned` integer DEFAULT 0 NOT NULL;
