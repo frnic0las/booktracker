@@ -18,6 +18,12 @@ const STATUS_DOT_CLASS: Record<ReadingStatus, string> = {
 
 const STATUS_ORDER: ReadingStatus[] = ['reading', 'read', 'want_to_read'];
 
+const numberFormat = new Intl.NumberFormat('en-US');
+
+function formatCount(value: number): string {
+  return numberFormat.format(value);
+}
+
 interface CategoryCardProps {
   title: string;
   stats: { reading: number; read: number; want_to_read: number };
@@ -105,9 +111,25 @@ export function AccountStats(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-2xl border border-separator bg-surface-1 px-4 py-5 text-center">
-        <p className="text-[36px] font-extrabold tracking-tight text-primary">{stats.total}</p>
-        <p className="mt-1 text-[13px] font-semibold uppercase tracking-wide text-tertiary">Total books</p>
+      <div className="rounded-2xl border border-separator bg-surface-1">
+        <div className="grid grid-cols-2">
+          <div className="flex min-w-0 flex-col items-center px-4 py-5">
+            <p className="flex h-10 items-end whitespace-nowrap text-[36px] font-extrabold leading-none tracking-tight tabular-nums text-primary">
+              {formatCount(stats.total)}
+            </p>
+            <p className="mt-2 whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-tertiary">
+              Total books
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col items-center border-l border-separator px-4 py-5">
+            <p className="flex h-10 items-end whitespace-nowrap text-[28px] font-bold leading-none tracking-tight tabular-nums text-secondary">
+              {formatCount(stats.totalPagesRead)}
+            </p>
+            <p className="mt-2 whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-tertiary">
+              Pages read
+            </p>
+          </div>
+        </div>
       </div>
 
       <CategoryCard title="Novels" stats={stats.novels} />
