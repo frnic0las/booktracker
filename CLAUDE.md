@@ -117,9 +117,7 @@ booktracker/
 │       │   └── server.ts
 │       └── setup.ts
 ├── docs/
-│   ├── mockups/          # Per-issue mockups + component mapping
-│   ├── ARCHITECTURE.md
-│   └── DATABASE.md
+│   └── mockups/          # Per-issue mockups + component mapping
 ├── drizzle/              # Generated migrations
 ├── scripts/
 │   └── seed.ts
