@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #32 · Abandon a book + Rating</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Same seed as issues #8 / #9 / #26; maps 1:1 to globals.css @theme.
+         ONE new token is introduced here: --abandoned.
+         ============================================================ */
+      :root {
+        /* Surfaces */
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        /* Text */
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        /* Accent */
+        --accent: #0a84ff;
+        --accent-pressed: #0060df;
+
+        /* Semantic */
+        --destructive: #ff453a;   /* ACTIONS only (remove, abandon CTA) */
+        --reading: #ff9f0a;
+        --read: #30d158;
+        --want: #5e5ce6;
+
+        /* NEW — the abandoned STATE (a desaturated coral).
+           Deliberately duller than --destructive and cooler than
+           --reading so a DNF book never reads as "danger" or "reading". */
+        --abandoned: #c4726a;
+
+        /* Radii */
+        --r-card: 12px;
+        --r-control: 10px;
+        --r-sheet: 20px;
+        --r-pill: 999px;
+
+        /* Layout */
+        --safe-bottom: 34px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #050506;
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 24px 80px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .page-title { width: 100%; text-align: center; margin-bottom: 8px; }
+      .page-title h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+      .page-title p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+      .page-title .swatches {
+        display: flex; gap: 18px; justify-content: center; margin-top: 18px;
+        font-size: 12px; color: var(--text-secondary);
+      }
+      .page-title .swatches span { display: flex; align-items: center; gap: 7px; }
+      .page-title .swatches i {
+        width: 13px; height: 13px; border-radius: 4px; display: block;
+      }
+
+      /* ---------- Device frame (390 × 844) ---------- */
+      .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .frame-label {
+        font-size: 13px; font-weight: 600; color: var(--text-secondary);
+        letter-spacing: 0.01em; text-align: center; max-width: 390px;
+      }
+      .frame-label b { color: var(--text-primary); display: block; font-size: 14px; }
+      .device {
+        width: 390px;
+        height: 844px;
+        background: var(--bg);
+        border-radius: 44px;
+        border: 10px solid #1c1c1f;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Status bar */
+      .statusbar {
+        height: 50px; flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 26px; font-size: 15px; font-weight: 600;
+      }
+      .statusbar .glyphs { display: flex; gap: 6px; align-items: center; }
+      .statusbar svg { display: block; }
+
+      .screen { flex: 1 1 auto; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+
+      /* ---------- Nav bar ---------- */
+      .navbar { height: 44px; flex: 0 0 auto; display: flex; align-items: center; padding: 0 12px; }
+      .navbar a {
+        display: flex; align-items: center; gap: 2px;
+        color: var(--accent); font-size: 16px; text-decoration: none;
+      }
+
+      /* ---------- BookDetail ---------- */
+      .detail { padding: 8px 20px 24px; text-align: center; overflow-y: auto; }
+
+      .cover-hero {
+        position: relative; width: 150px; aspect-ratio: 2 / 3;
+        margin: 4px auto 18px; border-radius: 10px; overflow: hidden;
+        border: 1px solid var(--separator);
+        background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      }
+      .cover-hero .t { font-size: 14px; font-weight: 700; line-height: 1.2; }
+      .cover-hero .glyph { margin-top: 8px; color: var(--text-tertiary); }
+
+      /* Abandoned cover overlay — scrim + DNF strip.
+         Black, not --bg: --bg is white in light mode and would wash the cover
+         out instead of dimming it. Matches the `bg-black/50` scrim in Sheet.tsx. */
+      .cover-hero.is-abandoned::after {
+        content: ""; position: absolute; inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .cover-hero.is-abandoned .t,
+      .cover-hero.is-abandoned .glyph { opacity: 0.45; }
+      .dnf-strip {
+        position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+        background: var(--abandoned);
+        /* --bg as ink: near-black on coral in dark, white on coral in light. */
+        color: var(--bg); font-size: 11px; font-weight: 800;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 6px 0; text-align: center;
+      }
+
+      .title { font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
+      .authors { margin-top: 6px; font-size: 15px; color: var(--text-secondary); }
+
+      /* Badge row (status + category) */
+      .badges { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 16px 0; }
+      .badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        border: 1px solid var(--separator); background: var(--surface-1);
+        border-radius: var(--r-pill); padding: 7px 14px;
+        font-size: 13px; font-weight: 600; color: var(--text-primary);
+      }
+      .badge .dot { width: 8px; height: 8px; border-radius: 50%; display: block; }
+      .badge .chev { color: var(--text-tertiary); display: flex; }
+      .dot-reading { background: var(--reading); }
+      .dot-read { background: var(--read); }
+      .dot-want { background: var(--want); }
+      .dot-abandoned { background: var(--abandoned); }
+
+      /* Abandoned badge replaces the green Read badge.
+         Equivalent to `border-abandoned/45 bg-abandoned/15` over the page bg. */
+      .badge.is-abandoned {
+        border-color: color-mix(in srgb, var(--abandoned) 45%, transparent);
+        background: color-mix(in srgb, var(--abandoned) 15%, var(--bg));
+        color: var(--abandoned);
+      }
+
+      /* ---------- Rating segmented picker ---------- */
+      .rating {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+        background: var(--surface-2); border-radius: var(--r-control);
+        padding: 3px; margin-bottom: 18px;
+      }
+      .rating button {
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        border: 0; background: transparent; cursor: pointer;
+        border-radius: 8px; padding: 9px 4px;
+        font: inherit; font-size: 13px; font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .rating button .emo { font-size: 15px; line-height: 1; filter: grayscale(1); opacity: 0.65; }
+      .rating button[aria-pressed="true"] {
+        background: var(--bg); color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      }
+      .rating button[aria-pressed="true"] .emo { filter: none; opacity: 1; }
+
+      /* ---------- Metadata row ---------- */
+      .meta {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        border: 1px solid var(--separator); border-radius: var(--r-card);
+        background: var(--surface-1); overflow: hidden; margin-bottom: 18px;
+      }
+      .meta div { padding: 12px 6px; text-align: center; }
+      .meta div + div { border-left: 1px solid var(--separator); }
+      .meta .v { font-size: 16px; font-weight: 700; }
+      .meta .k { margin-top: 3px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); }
+
+      .desc { text-align: left; font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 24px; }
+
+      .btn-destructive-outline {
+        width: 100%; border-radius: var(--r-control);
+        border: 1px solid color-mix(in srgb, var(--destructive) 35%, transparent);
+        background: transparent; color: var(--destructive);
+        padding: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+      }
+
+      /* ---------- Sheet ---------- */
+      .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 60; }
+      .sheet {
+        position: absolute; left: 0; right: 0; bottom: 0; z-index: 70;
+        background: var(--surface-1);
+        border-top: 1px solid var(--separator);
+        border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+        padding: 20px 20px calc(20px + var(--safe-bottom));
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+      }
+      .sheet .grabber { width: 36px; height: 5px; border-radius: var(--r-pill); background: var(--separator); margin: 2px auto 12px; }
+      .sheet h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+
+      .sheet-option {
+        display: flex; align-items: center; gap: 12px;
+        width: 100%; padding: 12px 0; border: 0; background: none;
+        font: inherit; font-size: 15px; font-weight: 500; color: var(--text-primary);
+        text-align: left; cursor: pointer;
+      }
+      .sheet-option .label { flex: 1; }
+      .sheet-option .check { color: var(--accent); display: flex; }
+
+      /* Abandon option — separated + destructive */
+      .sheet-sep { height: 1px; background: var(--separator); margin: 6px 0; }
+      .sheet-option.is-destructive { color: var(--destructive); font-weight: 600; }
+      .sheet-option.is-destructive .icon { display: flex; color: var(--destructive); }
+      .sheet-hint { font-size: 12px; color: var(--text-tertiary); padding-bottom: 2px; }
+
+      /* ---------- Library grid ---------- */
+      /* Mirrors SubTabs.tsx exactly: surface-1 track, 2px gap, surface-2 active.
+         NOT the SegmentedControl recipe (surface-2 track, 3px gap, bg active). */
+      .subtabs {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px;
+        background: var(--surface-1); border-radius: var(--r-control);
+        padding: 3px; margin: 4px 20px 16px;
+      }
+      .subtabs button {
+        border: 0; background: transparent; border-radius: 8px; padding: 7px 4px;
+        font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
+      }
+      .subtabs button[aria-pressed="true"] { background: var(--surface-2); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+
+      .lib-title { padding: 4px 20px 0; }
+      .lib-title h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; }
+
+      .grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 12px;
+        padding: 0 20px 24px; overflow-y: auto;
+      }
+      .card { display: flex; flex-direction: column; gap: 6px; }
+      .card .cover {
+        position: relative; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden;
+        border: 1px solid var(--separator);
+        background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 10px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+      .card .cover .t { font-size: 11px; font-weight: 700; line-height: 1.2; }
+      .card .cover .glyph { margin-top: 6px; color: var(--text-tertiary); }
+      .card .name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+      .card .by { margin-top: 1px; font-size: 11px; color: var(--text-secondary); }
+
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+
+      /* Rating badge on the card cover */
+      .rating-badge {
+        position: absolute; top: 5px; right: 5px; z-index: 3;
+        width: 22px; height: 22px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; line-height: 1;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(6px);
+      }
+
+      /* Abandoned card treatment */
+      .card .cover.is-abandoned::after {
+        content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5);
+      }
+      .card .cover.is-abandoned .t,
+      .card .cover.is-abandoned .glyph { opacity: 0.45; }
+      .card .cover .dnf {
+        position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+        background: var(--abandoned); color: var(--bg);
+        font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+        padding: 3px 0; text-align: center;
+      }
+
+      /* ---------- Bottom nav ---------- */
+      .bottomnav {
+        flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, 1fr);
+        border-top: 1px solid var(--separator); background: var(--surface-1);
+        padding: 8px 0 calc(6px + var(--safe-bottom));
+      }
+      .bottomnav div {
+        display: flex; flex-direction: column; align-items: center; gap: 3px;
+        font-size: 10px; font-weight: 500; color: var(--text-tertiary);
+      }
+      .bottomnav div.active { color: var(--accent); }
+
+      .callout {
+        width: 100%; max-width: 900px; background: var(--surface-1);
+        border: 1px solid var(--separator); border-radius: var(--r-card);
+        padding: 18px 20px; font-size: 13px; line-height: 1.65; color: var(--text-secondary);
+      }
+      .callout h4 { color: var(--text-primary); font-size: 14px; margin-bottom: 8px; }
+      .callout code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+        color: var(--text-primary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      <h1>Issue #32 — Abandon a book + Rating</h1>
+      <p>Mobile-only, iOS-native. Boards at 390 × 844. Dark theme is primary.</p>
+      <div class="swatches">
+        <span><i style="background: #ff9f0a"></i> --reading</span>
+        <span><i style="background: #30d158"></i> --read</span>
+        <span><i style="background: #5e5ce6"></i> --want</span>
+        <span><i style="background: #ff453a"></i> --destructive (actions)</span>
+        <span><i style="background: #c4726a"></i> --abandoned (state) — NEW</span>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 1 — Status sheet with "Abandon" (book is `reading`)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>1 · Status sheet — book is Reading</b>
+        “Abandon” sits below a hairline separator, in destructive styling.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="navbar">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>Novels</a>
+          </div>
+          <div class="detail">
+            <div class="cover-hero">
+              <div class="t">The Wind-Up Bird Chronicle</div>
+              <svg class="glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+            </div>
+            <div class="title">The Wind-Up Bird Chronicle</div>
+            <div class="authors">Haruki Murakami</div>
+            <div class="badges">
+              <button class="badge">
+                <span class="dot dot-reading"></span>Reading
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+              <button class="badge">
+                Novel
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+            </div>
+            <!-- No rating picker: status is `reading`, not `read`. -->
+            <div class="meta">
+              <div><div class="v">607</div><div class="k">Pages</div></div>
+              <div><div class="v">1997</div><div class="k">Year</div></div>
+              <div><div class="v">9780679775430</div><div class="k">ISBN</div></div>
+            </div>
+          </div>
+
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grabber"></div>
+            <h3>Update status</h3>
+            <button class="sheet-option">
+              <span class="dot dot-reading"></span>
+              <span class="label">Reading</span>
+              <span class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg></span>
+            </button>
+            <button class="sheet-option">
+              <span class="dot dot-read"></span>
+              <span class="label">Read</span>
+            </button>
+            <button class="sheet-option">
+              <span class="dot dot-want"></span>
+              <span class="label">Want to Read</span>
+            </button>
+
+            <div class="sheet-sep"></div>
+
+            <button class="sheet-option is-destructive">
+              <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg></span>
+              <span class="label">Abandon</span>
+            </button>
+            <div class="sheet-hint">Marks the book as read and flags it Did Not Finish.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 2 — BookDetail, status `read`, no rating yet
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>2 · BookDetail — Read, not rated</b>
+        Rating picker appears, all three segments unselected.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="navbar">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>Novels</a>
+          </div>
+          <div class="detail">
+            <div class="cover-hero">
+              <div class="t">Piranesi</div>
+              <svg class="glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+            </div>
+            <div class="title">Piranesi</div>
+            <div class="authors">Susanna Clarke</div>
+            <div class="badges">
+              <button class="badge">
+                <span class="dot dot-read"></span>Read
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+              <button class="badge">
+                Novel
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+            </div>
+
+            <div class="rating" role="group" aria-label="Rating">
+              <button aria-pressed="false"><span class="emo">👍</span>Good</button>
+              <button aria-pressed="false"><span class="emo">😐</span>Average</button>
+              <button aria-pressed="false"><span class="emo">👎</span>Bad</button>
+            </div>
+
+            <div class="meta">
+              <div><div class="v">245</div><div class="k">Pages</div></div>
+              <div><div class="v">2020</div><div class="k">Year</div></div>
+              <div><div class="v">9781635575637</div><div class="k">ISBN</div></div>
+            </div>
+            <p class="desc">
+              Piranesi’s house is no ordinary building. Its rooms are infinite, its corridors endless,
+              its walls lined with thousands of statues. Within the labyrinth of halls an ocean is imprisoned.
+            </p>
+            <button class="btn-destructive-outline">Remove from library</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 3 — BookDetail, status `read`, rated Good
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>3 · BookDetail — Read, rated Good 👍</b>
+        Selected segment lifts onto <code>--bg</code>; emoji loses its grayscale filter.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="navbar">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>Novels</a>
+          </div>
+          <div class="detail">
+            <div class="cover-hero">
+              <div class="t">Piranesi</div>
+              <svg class="glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+            </div>
+            <div class="title">Piranesi</div>
+            <div class="authors">Susanna Clarke</div>
+            <div class="badges">
+              <button class="badge">
+                <span class="dot dot-read"></span>Read
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+              <button class="badge">
+                Novel
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+            </div>
+
+            <div class="rating" role="group" aria-label="Rating">
+              <button aria-pressed="true"><span class="emo">👍</span>Good</button>
+              <button aria-pressed="false"><span class="emo">😐</span>Average</button>
+              <button aria-pressed="false"><span class="emo">👎</span>Bad</button>
+            </div>
+
+            <div class="meta">
+              <div><div class="v">245</div><div class="k">Pages</div></div>
+              <div><div class="v">2020</div><div class="k">Year</div></div>
+              <div><div class="v">9781635575637</div><div class="k">ISBN</div></div>
+            </div>
+            <p class="desc">
+              Piranesi’s house is no ordinary building. Its rooms are infinite, its corridors endless,
+              its walls lined with thousands of statues. Within the labyrinth of halls an ocean is imprisoned.
+            </p>
+            <button class="btn-destructive-outline">Remove from library</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 4 — BookDetail, abandoned, rated Bad
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>4 · BookDetail — Abandoned, rated Bad 👎</b>
+        Abandoned badge replaces the green Read badge; cover gets a scrim + DNF strip.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="navbar">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>Non-Fiction</a>
+          </div>
+          <div class="detail">
+            <div class="cover-hero is-abandoned">
+              <div class="t">Infinite Jest</div>
+              <svg class="glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              <div class="dnf-strip">Did Not Finish</div>
+            </div>
+            <div class="title">Infinite Jest</div>
+            <div class="authors">David Foster Wallace</div>
+            <div class="badges">
+              <button class="badge is-abandoned">
+                <span class="dot dot-abandoned"></span>Abandoned
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+              <button class="badge">
+                Novel
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+            </div>
+
+            <div class="rating" role="group" aria-label="Rating">
+              <button aria-pressed="false"><span class="emo">👍</span>Good</button>
+              <button aria-pressed="false"><span class="emo">😐</span>Average</button>
+              <button aria-pressed="true"><span class="emo">👎</span>Bad</button>
+            </div>
+
+            <div class="meta">
+              <div><div class="v">1079</div><div class="k">Pages</div></div>
+              <div><div class="v">1996</div><div class="k">Year</div></div>
+              <div><div class="v">9780316066525</div><div class="k">ISBN</div></div>
+            </div>
+            <p class="desc">
+              A gargantuan, mind-altering comedy about the pursuit of happiness in America,
+              set in an addicts’ halfway house and a tennis academy.
+            </p>
+            <button class="btn-destructive-outline">Remove from library</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 5 — Library grid, Read tab
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>5 · Library grid — Read tab</b>
+        Mix of unrated, rated, and abandoned books. Abandoned books live here, not in a 4th tab.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="lib-title"><h2>Novels</h2></div>
+          <div class="subtabs">
+            <button aria-pressed="false">Reading</button>
+            <button aria-pressed="true">Read</button>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <div class="cover">
+                <span class="rating-badge"><span class="sr-only">Rated good</span><span aria-hidden="true">👍</span></span>
+                <div class="t">Piranesi</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">Piranesi</div><div class="by">Susanna Clarke</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover">
+                <div class="t">Klara and the Sun</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">Klara and the Sun</div><div class="by">Kazuo Ishiguro</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover is-abandoned">
+                <span class="rating-badge"><span class="sr-only">Rated bad</span><span aria-hidden="true">👎</span></span>
+                <div class="t">Infinite Jest</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+                <div class="dnf">DNF</div>
+              </div>
+              <div><div class="name">Infinite Jest</div><div class="by">David Foster Wallace</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover">
+                <span class="rating-badge"><span class="sr-only">Rated average</span><span aria-hidden="true">😐</span></span>
+                <div class="t">The Overstory</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">The Overstory</div><div class="by">Richard Powers</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover is-abandoned">
+                <div class="t">Gravity’s Rainbow</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+                <div class="dnf">DNF</div>
+              </div>
+              <div><div class="name">Gravity’s Rainbow</div><div class="by">Thomas Pynchon</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover">
+                <span class="rating-badge"><span class="sr-only">Rated good</span><span aria-hidden="true">👍</span></span>
+                <div class="t">Never Let Me Go</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">Never Let Me Go</div><div class="by">Kazuo Ishiguro</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover">
+                <div class="t">Circe</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">Circe</div><div class="by">Madeline Miller</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover">
+                <span class="rating-badge"><span class="sr-only">Rated good</span><span aria-hidden="true">👍</span></span>
+                <div class="t">The Wind-Up Bird Chronicle</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              </div>
+              <div><div class="name">The Wind-Up Bird Chronicle</div><div class="by">Haruki Murakami</div></div>
+            </div>
+
+            <div class="card">
+              <div class="cover is-abandoned">
+                <span class="rating-badge"><span class="sr-only">Rated average</span><span aria-hidden="true">😐</span></span>
+                <div class="t">Ulysses</div>
+                <svg class="glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+                <div class="dnf">DNF</div>
+              </div>
+              <div><div class="name">Ulysses</div><div class="by">James Joyce</div></div>
+            </div>
+          </div>
+
+          <div class="bottomnav">
+            <div class="active">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+              Novels
+            </div>
+            <div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
+              Non-Fiction
+            </div>
+            <div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+              Search
+            </div>
+            <div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+              Account
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 6 — Status sheet for a `read` book (no Abandon option)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        <b>6 · Status sheet — book is Read</b>
+        No “Abandon” option: it is only offered while the book is Reading.
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 4v3a2 2 0 0 0 0-3z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+        <div class="screen">
+          <div class="navbar">
+            <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>Novels</a>
+          </div>
+          <div class="detail">
+            <div class="cover-hero">
+              <div class="t">Piranesi</div>
+              <svg class="glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+            </div>
+            <div class="title">Piranesi</div>
+            <div class="authors">Susanna Clarke</div>
+            <div class="badges">
+              <button class="badge">
+                <span class="dot dot-read"></span>Read
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+              <button class="badge">
+                Novel
+                <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+              </button>
+            </div>
+            <div class="rating" role="group" aria-label="Rating">
+              <button aria-pressed="true"><span class="emo">👍</span>Good</button>
+              <button aria-pressed="false"><span class="emo">😐</span>Average</button>
+              <button aria-pressed="false"><span class="emo">👎</span>Bad</button>
+            </div>
+            <div class="meta">
+              <div><div class="v">245</div><div class="k">Pages</div></div>
+              <div><div class="v">2020</div><div class="k">Year</div></div>
+              <div><div class="v">9781635575637</div><div class="k">ISBN</div></div>
+            </div>
+          </div>
+
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grabber"></div>
+            <h3>Update status</h3>
+            <button class="sheet-option">
+              <span class="dot dot-reading"></span>
+              <span class="label">Reading</span>
+            </button>
+            <button class="sheet-option">
+              <span class="dot dot-read"></span>
+              <span class="label">Read</span>
+              <span class="check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg></span>
+            </button>
+            <button class="sheet-option">
+              <span class="dot dot-want"></span>
+              <span class="label">Want to Read</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>Why <code>--abandoned</code> is not <code>--destructive</code></h4>
+      <p>
+        <code>--destructive</code> (<code>#ff453a</code>) is a full-saturation alarm red reserved for
+        <em>actions that destroy data</em> — “Remove from library”, and the “Abandon” row in the status sheet.
+        A book you gave up on is not an error, so painting its badge and cover strip in alarm red would
+        overstate it and collide with the removal affordance. <code>--abandoned</code>
+        (<code>#c4726a</code> dark / <code>#a8443c</code> light) is a desaturated coral: unmistakably in the
+        red family, but calm — and far enough from <code>--reading</code> (<code>#ff9f0a</code>) that the two
+        never read as the same dot.
+      </p>
+    </div>
+  </body>
+</html>
