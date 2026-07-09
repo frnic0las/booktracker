@@ -14,6 +14,7 @@
   --reading: #ff9f0a;
   --read: #30d158;
   --want: #5e5ce6;
+  --abandoned: #c4726a;
 }
 
 @media (prefers-color-scheme: light) {
@@ -31,6 +32,7 @@
     --reading: #f59e0b;
     --read: #28a745;
     --want: #5856d6;
+    --abandoned: #a8443c;
   }
 }
 
@@ -48,6 +50,7 @@
   --color-reading: var(--reading);
   --color-read: var(--read);
   --color-want: var(--want);
+  --color-abandoned: var(--abandoned);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

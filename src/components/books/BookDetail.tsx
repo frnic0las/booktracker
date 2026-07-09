@@ -5,9 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { removeBook, updateBookCategory, updateBookStatus } from '@/actions/books';
+import { abandonBook, removeBook, updateBookCategory, updateBookRating, updateBookStatus } from '@/actions/books';
+import { RatingPicker } from '@/components/books/RatingPicker';
 import { Sheet } from '@/components/ui/Sheet';
-import type { BookCategory, LibraryEntry, ReadingStatus } from '@/types/books';
+import type { BookCategory, BookRating, LibraryEntry, ReadingStatus } from '@/types/books';
 
 export interface BookDetailProps {
   entry: LibraryEntry;
@@ -68,17 +69,46 @@ function CheckIcon(): React.JSX.Element {
   );
 }
 
-function HeroCover({ title, thumbnail }: { title: string; thumbnail: string | null }): React.JSX.Element {
+function XCircleIcon(): React.JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" />
+    </svg>
+  );
+}
+
+function DnfStrip(): React.JSX.Element {
+  return (
+    <>
+      <div className="absolute inset-0 z-10 bg-black/55" />
+      <div className="absolute inset-x-0 bottom-0 z-20 bg-abandoned py-1.5 text-center text-[11px] font-extrabold uppercase tracking-[0.08em] text-background">
+        Did Not Finish
+      </div>
+    </>
+  );
+}
+
+function HeroCover({
+  title,
+  thumbnail,
+  abandoned,
+}: {
+  title: string;
+  thumbnail: string | null;
+  abandoned: boolean;
+}): React.JSX.Element {
   if (thumbnail) {
     return (
       <div className="relative mx-auto mb-[18px] mt-1 aspect-[2/3] w-[150px] overflow-hidden rounded-[10px] bg-surface-2 shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
         <Image src={thumbnail} alt="" fill sizes="150px" className="object-cover" />
+        {abandoned ? <DnfStrip /> : null}
       </div>
     );
   }
 
   return (
-    <div className="relative mx-auto mb-[18px] mt-1 flex aspect-[2/3] w-[150px] flex-col items-center justify-center rounded-[10px] border border-separator bg-gradient-to-br from-surface-2 to-surface-1 p-3 text-center shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
+    <div className="relative mx-auto mb-[18px] mt-1 flex aspect-[2/3] w-[150px] flex-col items-center justify-center overflow-hidden rounded-[10px] border border-separator bg-gradient-to-br from-surface-2 to-surface-1 p-3 text-center shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
       <p className="line-clamp-4 text-sm font-bold leading-tight text-primary">{title}</p>
       <svg
         width="24"
@@ -92,6 +122,7 @@ function HeroCover({ title, thumbnail }: { title: string; thumbnail: string | nu
         <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
         <path d="M18 6h2v14H6" />
       </svg>
+      {abandoned ? <DnfStrip /> : null}
     </div>
   );
 }
@@ -100,6 +131,8 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
   const router = useRouter();
   const [status, setStatus] = useState<ReadingStatus>(entry.status);
   const [category, setCategory] = useState<BookCategory>(entry.category);
+  const [abandoned, setAbandoned] = useState(entry.abandoned);
+  const [rating, setRating] = useState<BookRating | null>(entry.rating);
   const [statusOpen, setStatusOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -127,10 +160,58 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
       }
 
       setStatus(value);
+      setAbandoned(value === 'read' ? abandoned : false);
       setStatusOpen(false);
       router.refresh();
     } catch {
       setError('Failed to update status');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleAbandon(): Promise<void> {
+    setPending(true);
+    setError(null);
+
+    try {
+      const outcome = await abandonBook(entry.userBookId);
+
+      if (!outcome.success) {
+        setError(outcome.error);
+        return;
+      }
+
+      setStatus('read');
+      setAbandoned(true);
+      setStatusOpen(false);
+      router.refresh();
+    } catch {
+      setError('Failed to abandon book');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleSelectRating(value: BookRating | null): Promise<void> {
+    const previous = rating;
+    setRating(value);
+    setPending(true);
+    setError(null);
+
+    try {
+      const outcome = await updateBookRating(entry.userBookId, value);
+
+      if (!outcome.success) {
+        setError(outcome.error);
+        setRating(previous);
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setError('Failed to update rating');
+      setRating(previous);
     } finally {
       setPending(false);
     }
@@ -194,7 +275,7 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
       </div>
 
       <div className="px-5 pb-6 pt-2 text-center">
-        <HeroCover title={book.title} thumbnail={book.thumbnail} />
+        <HeroCover title={book.title} thumbnail={book.thumbnail} abandoned={abandoned} />
 
         <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-primary">{book.title}</h1>
 
@@ -206,10 +287,12 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
           <button
             type="button"
             onClick={() => setStatusOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-separator bg-surface-1 px-3.5 py-[7px] text-[13px] font-semibold text-primary"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-[7px] text-[13px] font-semibold ${
+              abandoned ? 'border-abandoned/45 bg-abandoned/15 text-abandoned' : 'border-separator bg-surface-1 text-primary'
+            }`}
           >
-            <span className={`h-2 w-2 rounded-full ${STATUS_DOT_CLASS[status]}`} />
-            {STATUS_LABELS[status]}
+            <span className={`h-2 w-2 rounded-full ${abandoned ? 'bg-abandoned' : STATUS_DOT_CLASS[status]}`} />
+            {abandoned ? 'Abandoned' : STATUS_LABELS[status]}
             <span className="text-tertiary">
               <ChevronDownIcon />
             </span>
@@ -226,6 +309,12 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
             </span>
           </button>
         </div>
+
+        {status === 'read' ? (
+          <div className="mb-[18px] text-left">
+            <RatingPicker value={rating} onChange={handleSelectRating} disabled={pending} />
+          </div>
+        ) : null}
 
         <div className="mb-[18px] grid grid-cols-3 overflow-hidden rounded-xl border border-separator bg-surface-1">
           <div className="px-1.5 py-3 text-center">
@@ -275,6 +364,21 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
               {option === status ? <span className="text-accent"><CheckIcon /></span> : null}
             </button>
           ))}
+          {status === 'reading' ? (
+            <>
+              <div className="my-1.5 h-px bg-separator" />
+              <button
+                type="button"
+                disabled={pending}
+                onClick={handleAbandon}
+                className="flex w-full items-center gap-3 py-3 text-left font-semibold text-destructive disabled:opacity-60"
+              >
+                <XCircleIcon />
+                <span className="flex-1 text-[15px]">Abandon</span>
+              </button>
+              <p className="pb-0.5 text-xs text-tertiary">Marks the book as read and flags it Did Not Finish.</p>
+            </>
+          ) : null}
         </div>
       </Sheet>
 

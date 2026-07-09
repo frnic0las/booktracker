@@ -95,4 +95,36 @@ describe("BookGrid", () => {
     expect(hrefs).toContain("/books/user-book-1");
     expect(hrefs).toContain("/books/user-book-2");
   });
+
+  it("passes rating and abandoned through to each card", () => {
+    const entries = [
+      buildEntry({
+        userBookId: "user-book-1",
+        abandoned: true,
+        book: buildBook({ id: "book-1", title: "The Hobbit" }),
+      }),
+      buildEntry({
+        userBookId: "user-book-2",
+        rating: "bad",
+        book: buildBook({
+          id: "book-2",
+          title: "The Fellowship of the Ring",
+          googleBooksId: "abc123",
+          isbn13: "9780618346257",
+        }),
+      }),
+    ];
+
+    render(
+      <BookGrid
+        entries={entries}
+        emptyTitle="Nothing here yet"
+        emptyDescription="Search and add your first one."
+        addHref="/search?from=novels"
+      />,
+    );
+
+    expect(screen.getByText("DNF")).toBeTruthy();
+    expect(screen.getByText("👎")).toBeTruthy();
+  });
 });
