@@ -12,6 +12,7 @@ function buildStats(overrides: Partial<BookStats> = {}): BookStats {
     total: 42,
     novels: { reading: 2, read: 18, want_to_read: 5 },
     non_fiction: { reading: 1, read: 12, want_to_read: 4 },
+    totalPagesRead: 8420,
     ...overrides,
   };
 }
@@ -21,6 +22,7 @@ function zeroStats(): BookStats {
     total: 0,
     novels: { reading: 0, read: 0, want_to_read: 0 },
     non_fiction: { reading: 0, read: 0, want_to_read: 0 },
+    totalPagesRead: 0,
   };
 }
 

@@ -1,9 +1,9 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, sum } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { requireUserId } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { userBooks } from "@/lib/db/schema";
+import { books, userBooks } from "@/lib/db/schema";
 import type { BookStats, CategoryStats } from "@/types/books";
 
 function emptyCategoryStats(): CategoryStats {
@@ -28,10 +28,23 @@ export async function GET() {
       .where(eq(userBooks.userId, userId))
       .groupBy(userBooks.category, userBooks.status);
 
+    const [pagesReadRow] = await db
+      .select({ totalPagesRead: sum(books.pageCount) })
+      .from(userBooks)
+      .innerJoin(books, eq(userBooks.bookId, books.id))
+      .where(
+        and(
+          eq(userBooks.userId, userId),
+          eq(userBooks.status, "read"),
+          eq(userBooks.abandoned, false),
+        ),
+      );
+
     const stats: BookStats = {
       total: 0,
       novels: emptyCategoryStats(),
       non_fiction: emptyCategoryStats(),
+      totalPagesRead: Number(pagesReadRow?.totalPagesRead ?? 0),
     };
 
     for (const row of rows) {
