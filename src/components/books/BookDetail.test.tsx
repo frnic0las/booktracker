@@ -108,6 +108,36 @@ describe("BookDetail", () => {
     ).toBeNull();
   });
 
+  it("strips HTML tags and entities from the description", () => {
+    const entry = buildEntry({
+      book: buildBook({
+        description: "<p>A <b>stunning</b> blend &amp; a &quot;classic&quot;.</p>",
+      }),
+    });
+    render(<BookDetail {...buildProps({ entry })} />);
+
+    expect(screen.getByText('A stunning blend & a "classic".')).toBeTruthy();
+    expect(screen.queryByText(/<b>|&amp;|&quot;/)).toBeNull();
+  });
+
+  it("preserves <br> line breaks as newlines in the rendered description", () => {
+    const entry = buildEntry({
+      book: buildBook({ description: "First line.<br/>Second line." }),
+    });
+    render(<BookDetail {...buildProps({ entry })} />);
+
+    const paragraph = screen.getByText(/First line\./);
+    expect(paragraph.textContent).toBe("First line.\nSecond line.");
+    expect(paragraph.className).toContain("whitespace-pre-line");
+  });
+
+  it("omits the description block when it contains only markup", () => {
+    const entry = buildEntry({ book: buildBook({ description: "<p></p><br/>" }) });
+    const { container } = render(<BookDetail {...buildProps({ entry })} />);
+
+    expect(container.querySelector(".whitespace-pre-line")).toBeNull();
+  });
+
   it("points the back link to /novels for a novel entry", () => {
     render(<BookDetail {...buildProps({ entry: buildEntry({ category: "novel" }) })} />);
 

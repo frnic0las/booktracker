@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { abandonBook, removeBook, updateBookCategory, updateBookRating, updateBookStatus } from '@/actions/books';
 import { RatingPicker } from '@/components/books/RatingPicker';
 import { Sheet } from '@/components/ui/Sheet';
+import { stripHtml } from '@/lib/books/utils';
 import type { BookCategory, BookRating, LibraryEntry, ReadingStatus } from '@/types/books';
 
 export interface BookDetailProps {
@@ -141,6 +142,7 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
 
   const { book } = entry;
   const backTarget = BACK_TARGETS[category];
+  const description = stripHtml(book.description);
 
   async function handleSelectStatus(value: ReadingStatus): Promise<void> {
     if (value === status) {
@@ -333,8 +335,10 @@ export function BookDetail({ entry }: BookDetailProps): React.JSX.Element {
           </div>
         </div>
 
-        {book.description ? (
-          <p className="mb-6 text-left text-sm leading-relaxed text-secondary">{book.description}</p>
+        {description ? (
+          <p className="mb-6 whitespace-pre-line text-left text-sm leading-relaxed text-secondary">
+            {description}
+          </p>
         ) : null}
 
         {error ? <p className="mb-3 text-center text-[13px] text-secondary">{error}</p> : null}
