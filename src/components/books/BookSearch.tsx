@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AddBookSheet } from '@/components/books/AddBookSheet';
+import { SearchFilters, isValidLang } from '@/components/books/SearchFilters';
 import { SearchResultRow } from '@/components/books/SearchResultRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SearchBar } from '@/components/ui/SearchBar';
@@ -18,6 +19,8 @@ export interface BookSearchProps {
 export function BookSearch({ initialCategory, from }: BookSearchProps): React.JSX.Element {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [lang, setLang] = useState('');
+  const [author, setAuthor] = useState('');
   const [results, setResults] = useState<BookSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -25,6 +28,8 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const debouncedQuery = useDebounce(query.trim(), 300);
+  const debouncedLang = useDebounce(lang, 300);
+  const debouncedAuthor = useDebounce(author.trim(), 300);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -40,8 +45,18 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
       setLoading(true);
       setError(false);
 
+      const params = new URLSearchParams({ q: debouncedQuery });
+
+      if (isValidLang(debouncedLang)) {
+        params.set('lang', debouncedLang);
+      }
+
+      if (debouncedAuthor) {
+        params.set('author', debouncedAuthor);
+      }
+
       try {
-        const response = await fetch(`/api/books/search?q=${encodeURIComponent(debouncedQuery)}`, {
+        const response = await fetch(`/api/books/search?${params.toString()}`, {
           signal: controller.signal,
         });
 
@@ -64,7 +79,7 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
     void search();
 
     return () => controller.abort();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, debouncedLang, debouncedAuthor]);
 
   function handleSelect(result: BookSearchResult): void {
     setSelected(result);
@@ -81,6 +96,13 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
           placeholder="Title or author"
         />
       </div>
+
+      <SearchFilters
+        lang={lang}
+        author={author}
+        onLangChange={setLang}
+        onAuthorChange={setAuthor}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {!debouncedQuery ? (
