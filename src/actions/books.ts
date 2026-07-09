@@ -8,7 +8,7 @@ import { db } from "@/lib/db/client";
 import { books, userBooks } from "@/lib/db/schema";
 import { serializeAuthors } from "@/lib/books/mappers";
 import { GoogleBooksApiError, getBookById, toHttps } from "@/lib/google-books/client";
-import type { BookCategory, ReadingStatus } from "@/types/books";
+import type { BookCategory, BookRating, ReadingStatus } from "@/types/books";
 
 type ActionResult<T = void> =
   | { success: true; data: T }
@@ -150,9 +150,11 @@ export async function updateBookStatus(
       finishedAt = null;
     }
 
+    const abandoned = parsed.data.newStatus === "read" ? existing.abandoned : false;
+
     await db
       .update(userBooks)
-      .set({ status: parsed.data.newStatus, startedAt, finishedAt, updatedAt: now })
+      .set({ status: parsed.data.newStatus, startedAt, finishedAt, abandoned, updatedAt: now })
       .where(and(eq(userBooks.id, parsed.data.userBookId), eq(userBooks.userId, userId)));
 
     return { success: true, data: undefined };
@@ -203,6 +205,106 @@ export async function updateBookCategory(
   } catch (error) {
     console.error("Failed to update book category:", error);
     return { success: false, error: "Failed to update book category" };
+  }
+}
+
+const abandonBookSchema = z.object({
+  userBookId: z.string().min(1),
+});
+
+export async function abandonBook(userBookId: string): Promise<ActionResult> {
+  const userId = await requireUserId();
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const parsed = abandonBookSchema.safeParse({ userBookId });
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.message };
+  }
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(userBooks)
+      .where(and(eq(userBooks.id, parsed.data.userBookId), eq(userBooks.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: "Not found" };
+    }
+
+    if (existing.status !== "reading") {
+      return { success: false, error: "Only a book being read can be abandoned" };
+    }
+
+    const now = new Date();
+
+    await db
+      .update(userBooks)
+      .set({
+        status: "read",
+        abandoned: true,
+        finishedAt: now,
+        startedAt: existing.startedAt ?? now,
+        updatedAt: now,
+      })
+      .where(and(eq(userBooks.id, parsed.data.userBookId), eq(userBooks.userId, userId)));
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Failed to abandon book:", error);
+    return { success: false, error: "Failed to abandon book" };
+  }
+}
+
+const updateBookRatingSchema = z.object({
+  userBookId: z.string().min(1),
+  rating: z.enum(["good", "average", "bad"]).nullable(),
+});
+
+export async function updateBookRating(
+  userBookId: string,
+  rating: BookRating | null,
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const parsed = updateBookRatingSchema.safeParse({ userBookId, rating });
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.message };
+  }
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(userBooks)
+      .where(and(eq(userBooks.id, parsed.data.userBookId), eq(userBooks.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: "Not found" };
+    }
+
+    if (existing.status !== "read") {
+      return { success: false, error: "Only a finished book can be rated" };
+    }
+
+    await db
+      .update(userBooks)
+      .set({ rating: parsed.data.rating, updatedAt: new Date() })
+      .where(and(eq(userBooks.id, parsed.data.userBookId), eq(userBooks.userId, userId)));
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Failed to update book rating:", error);
+    return { success: false, error: "Failed to update book rating" };
   }
 }
 

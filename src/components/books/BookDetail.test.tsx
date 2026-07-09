@@ -43,6 +43,7 @@ function buildEntry(overrides: Partial<LibraryEntry> = {}): LibraryEntry {
     status: "reading",
     category: "novel",
     rating: null,
+    abandoned: false,
     startedAt: null,
     finishedAt: null,
     book: buildBook(),

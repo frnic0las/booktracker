@@ -7,7 +7,14 @@ import { books, userBooks } from "@/lib/db/schema";
 import { GoogleBooksApiError, getBookById } from "@/lib/google-books/client";
 import type { GoogleBooksVolume } from "@/types/books";
 
-import { addBook, removeBook, updateBookCategory, updateBookStatus } from "./books";
+import {
+  abandonBook,
+  addBook,
+  removeBook,
+  updateBookCategory,
+  updateBookRating,
+  updateBookStatus,
+} from "./books";
 
 vi.mock("@/lib/auth/session", () => ({
   requireUserId: vi.fn(),
@@ -114,6 +121,7 @@ function buildUserBookRow(overrides: Partial<UserBookRow> = {}): UserBookRow {
     status: "want_to_read",
     category: "novel",
     rating: null,
+    abandoned: false,
     notes: null,
     startedAt: null,
     finishedAt: null,
@@ -336,6 +344,40 @@ describe("actions/books", () => {
       expect(setArg.startedAt).toBeNull();
       expect(setArg.finishedAt).toBeNull();
     });
+
+    it("clears the abandoned flag when moving an abandoned 'read' book back to 'reading'", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({
+        status: "read",
+        abandoned: true,
+        startedAt: new Date("2024-02-01T00:00:00.000Z"),
+        finishedAt: new Date("2024-03-01T00:00:00.000Z"),
+      });
+      queueSelect([existing]);
+      const { set } = mockUpdate();
+
+      await updateBookStatus(existing.id, "reading");
+
+      const setArg = set.mock.calls[0][0];
+      expect(setArg.abandoned).toBe(false);
+    });
+
+    it("preserves abandoned when moving to 'read'", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({
+        status: "reading",
+        abandoned: true,
+        startedAt: new Date("2024-02-01T00:00:00.000Z"),
+        finishedAt: null,
+      });
+      queueSelect([existing]);
+      const { set } = mockUpdate();
+
+      await updateBookStatus(existing.id, "read");
+
+      const setArg = set.mock.calls[0][0];
+      expect(setArg.abandoned).toBe(true);
+    });
   });
 
   describe("updateBookCategory", () => {
@@ -373,6 +415,148 @@ describe("actions/books", () => {
       expect(chain.where).toHaveBeenCalledWith(expectedFilter);
       expect(set).toHaveBeenCalledWith(expect.objectContaining({ category: "non_fiction" }));
       expect(updateWhere).toHaveBeenCalledWith(expectedFilter);
+      expect(result).toEqual({ success: true, data: undefined });
+    });
+  });
+
+  describe("abandonBook", () => {
+    it("returns Unauthorized when there is no session", async () => {
+      vi.mocked(requireUserId).mockResolvedValue(null);
+
+      const result = await abandonBook("user-book-1");
+
+      expect(result).toEqual({ success: false, error: "Unauthorized" });
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns Not found when no userBooks row matches this id for this user", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      queueSelect([]);
+
+      const result = await abandonBook("user-book-1");
+
+      expect(result).toEqual({ success: false, error: "Not found" });
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects abandoning a book with status 'want_to_read'", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({ status: "want_to_read" });
+      queueSelect([existing]);
+
+      const result = await abandonBook(existing.id);
+
+      expect(result).toEqual({
+        success: false,
+        error: "Only a book being read can be abandoned",
+      });
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects abandoning a book with status 'read'", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({ status: "read" });
+      queueSelect([existing]);
+
+      const result = await abandonBook(existing.id);
+
+      expect(result).toEqual({
+        success: false,
+        error: "Only a book being read can be abandoned",
+      });
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+
+    it("marks a 'reading' book as read and abandoned, preserving startedAt", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const startedAt = new Date("2024-02-01T00:00:00.000Z");
+      const existing = buildUserBookRow({
+        status: "reading",
+        startedAt,
+        finishedAt: null,
+      });
+      const [chain] = queueSelect([existing]);
+      const { set, where: updateWhere } = mockUpdate();
+
+      const result = await abandonBook(existing.id);
+
+      const expectedFilter = and(
+        eq(userBooks.id, existing.id),
+        eq(userBooks.userId, "user-1"),
+      );
+      expect(chain.where).toHaveBeenCalledWith(expectedFilter);
+
+      const setArg = set.mock.calls[0][0];
+      expect(setArg.status).toBe("read");
+      expect(setArg.abandoned).toBe(true);
+      expect(setArg.finishedAt).toBeInstanceOf(Date);
+      expect(setArg.startedAt).toBe(startedAt);
+      expect(updateWhere).toHaveBeenCalledWith(expectedFilter);
+      expect(result).toEqual({ success: true, data: undefined });
+    });
+  });
+
+  describe("updateBookRating", () => {
+    it("returns Unauthorized when there is no session", async () => {
+      vi.mocked(requireUserId).mockResolvedValue(null);
+
+      const result = await updateBookRating("user-book-1", "average");
+
+      expect(result).toEqual({ success: false, error: "Unauthorized" });
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns Not found when no userBooks row matches this id for this user", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      queueSelect([]);
+
+      const result = await updateBookRating("user-book-1", "average");
+
+      expect(result).toEqual({ success: false, error: "Not found" });
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects rating a book with status 'reading'", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({ status: "reading" });
+      queueSelect([existing]);
+
+      const result = await updateBookRating(existing.id, "average");
+
+      expect(result).toEqual({
+        success: false,
+        error: "Only a finished book can be rated",
+      });
+      expect(mockedDb.update).not.toHaveBeenCalled();
+    });
+
+    it("sets the rating, scoped to user_id, on a 'read' book", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({ status: "read", rating: null });
+      const [chain] = queueSelect([existing]);
+      const { set, where: updateWhere } = mockUpdate();
+
+      const result = await updateBookRating(existing.id, "average");
+
+      const expectedFilter = and(
+        eq(userBooks.id, existing.id),
+        eq(userBooks.userId, "user-1"),
+      );
+      expect(chain.where).toHaveBeenCalledWith(expectedFilter);
+      expect(set).toHaveBeenCalledWith(expect.objectContaining({ rating: "average" }));
+      expect(updateWhere).toHaveBeenCalledWith(expectedFilter);
+      expect(result).toEqual({ success: true, data: undefined });
+    });
+
+    it("clears the rating with null on a 'read' book", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+      const existing = buildUserBookRow({ status: "read", rating: "good" });
+      queueSelect([existing]);
+      const { set } = mockUpdate();
+
+      const result = await updateBookRating(existing.id, null);
+
+      expect(set).toHaveBeenCalledWith(expect.objectContaining({ rating: null }));
       expect(result).toEqual({ success: true, data: undefined });
     });
   });
