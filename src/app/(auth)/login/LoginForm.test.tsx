@@ -17,16 +17,24 @@ afterEach(() => {
 describe('LoginForm', () => {
   it('renders the email field, password field, and submit CTA', () => {
     mockedLogin.mockResolvedValue(null);
-    render(<LoginForm />);
+    render(<LoginForm callbackUrl="/novels" />);
 
     expect(screen.getByLabelText('Email')).toBeTruthy();
     expect(screen.getByLabelText('Password')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Log In' })).toBeTruthy();
   });
 
+  it('submits the callback URL alongside the credentials', () => {
+    mockedLogin.mockResolvedValue(null);
+    const { container } = render(<LoginForm callbackUrl="/account" />);
+
+    const hidden = container.querySelector('input[name="callbackUrl"]');
+    expect(hidden?.getAttribute('value')).toBe('/account');
+  });
+
   it('does not render the error banner by default', () => {
     mockedLogin.mockResolvedValue(null);
-    render(<LoginForm />);
+    render(<LoginForm callbackUrl="/novels" />);
 
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByLabelText('Email').getAttribute('aria-invalid')).toBeNull();
@@ -34,7 +42,7 @@ describe('LoginForm', () => {
 
   it('shows the error banner and marks fields invalid when the action returns an error', async () => {
     mockedLogin.mockResolvedValue('Invalid email or password.');
-    render(<LoginForm />);
+    render(<LoginForm callbackUrl="/novels" />);
 
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'nicolas@booktracker.app' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });

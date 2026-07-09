@@ -10,11 +10,17 @@ const INPUT_BASE_CLASSES =
 
 const INPUT_ERROR_CLASSES = 'border-destructive ring-3 ring-destructive/20';
 
-export function LoginForm(): React.JSX.Element {
+export interface LoginFormProps {
+  callbackUrl: string;
+}
+
+export function LoginForm({ callbackUrl }: LoginFormProps): React.JSX.Element {
   const [error, formAction, pending] = useActionState(login, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="callbackUrl" value={callbackUrl} />
+
       <div className="flex flex-col gap-[7px]">
         <label htmlFor="email" className="pl-1 text-[13px] font-semibold text-secondary">
           Email

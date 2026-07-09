@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { auth } from '@/lib/auth';
+import { toSafeCallbackPath } from '@/lib/auth/callback-url';
 
 import { LoginForm } from './LoginForm';
 
@@ -9,11 +10,17 @@ export const metadata: Metadata = {
   title: 'Log In · BookTracker',
 };
 
-export default async function LoginPage(): Promise<React.JSX.Element> {
+interface LoginPageProps {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps): Promise<React.JSX.Element> {
   const session = await auth();
+  const { callbackUrl } = await searchParams;
+  const redirectTo = toSafeCallbackPath(callbackUrl);
 
   if (session?.user) {
-    redirect('/novels');
+    redirect(redirectTo);
   }
 
   return (
@@ -29,7 +36,7 @@ export default async function LoginPage(): Promise<React.JSX.Element> {
         <p className="-mt-3.5 text-[15px] text-secondary">Your personal library</p>
       </div>
 
-      <LoginForm />
+      <LoginForm callbackUrl={redirectTo} />
     </div>
   );
 }

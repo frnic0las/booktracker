@@ -3,6 +3,7 @@
 import { AuthError } from 'next-auth';
 
 import { signIn } from '@/lib/auth';
+import { toSafeCallbackPath } from '@/lib/auth/callback-url';
 
 export async function login(_prevState: string | null, formData: FormData): Promise<string | null> {
   const email = formData.get('email');
@@ -12,7 +13,7 @@ export async function login(_prevState: string | null, formData: FormData): Prom
     await signIn('credentials', {
       email,
       password,
-      redirectTo: '/novels',
+      redirectTo: toSafeCallbackPath(formData.get('callbackUrl')),
     });
 
     return null;
