@@ -218,6 +218,12 @@ VERCEL_EMAIL=                   # Must match git config user.email
 - Prompts must be self-contained: include context, goal, and constraints.
 - Format: fenced code block with a brief French explanation before.
 
+### Shell Working Directory
+
+- The Bash tool's cwd persists across calls and drifts after any `cd` — later commands run wherever the last one left you.
+- Use absolute paths, or `cd` to the repo root first, for any repo-wide file check.
+- Never conclude a tracked file is missing from a "No such file or directory" error alone — verify with `git ls-files <path>`, which is cwd-independent.
+
 ## Workflow
 
 - Every GitHub issue goes through the `fix-issue` skill (`.claude/skills/fix-issue/SKILL.md`).
