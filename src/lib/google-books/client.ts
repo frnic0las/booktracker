@@ -86,8 +86,9 @@ export async function searchBooks(
 
   if (isbn) {
     // A scanned/entered ISBN resolves to a single edition via the isbn: field
-    // operator, so free-text and inauthor refinements do not apply.
-    q = `isbn:${isbn}`;
+    // operator, so free-text and inauthor refinements do not apply. Keep the
+    // field operator literal and encode only the value, mirroring inauthor.
+    q = `isbn:${encodeURIComponent(isbn)}`;
   } else {
     q = encodeURIComponent(query);
 
