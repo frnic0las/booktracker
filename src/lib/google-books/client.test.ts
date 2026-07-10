@@ -7,7 +7,13 @@ import type {
   GoogleBooksVolume,
 } from "@/types/books";
 
-import { GoogleBooksApiError, getBookById, searchBooks, toHttps } from "./client";
+import {
+  GoogleBooksApiError,
+  getBookById,
+  normalizeIsbn,
+  searchBooks,
+  toHttps,
+} from "./client";
 
 const GOOGLE_BOOKS_API_BASE = "https://www.googleapis.com/books/v1";
 
@@ -232,6 +238,93 @@ describe("google-books client", () => {
       );
 
       await searchBooks("the hobbit", { inauthor: "tolkien & lewis" });
+    });
+
+    it("builds an isbn: query for a bare ISBN-13", async () => {
+      server.use(
+        http.get(`${GOOGLE_BOOKS_API_BASE}/volumes`, ({ request }) => {
+          const url = new URL(request.url);
+          expect(url.searchParams.get("q")).toBe("isbn:9782070368228");
+          return HttpResponse.json(buildSearchResponse());
+        }),
+      );
+
+      await searchBooks("9782070368228");
+    });
+
+    it("strips hyphens from an ISBN-13 before building the isbn: query", async () => {
+      server.use(
+        http.get(`${GOOGLE_BOOKS_API_BASE}/volumes`, ({ request }) => {
+          const url = new URL(request.url);
+          expect(url.searchParams.get("q")).toBe("isbn:9782070368228");
+          return HttpResponse.json(buildSearchResponse());
+        }),
+      );
+
+      await searchBooks("978-2-07-036822-8");
+    });
+
+    it("builds an isbn: query for an ISBN-10 ending in X", async () => {
+      server.use(
+        http.get(`${GOOGLE_BOOKS_API_BASE}/volumes`, ({ request }) => {
+          const url = new URL(request.url);
+          expect(url.searchParams.get("q")).toBe("isbn:080442957X");
+          return HttpResponse.json(buildSearchResponse());
+        }),
+      );
+
+      await searchBooks("0-8044-2957-x");
+    });
+
+    it("falls back to a free-text query when the ISBN checksum is invalid", async () => {
+      server.use(
+        http.get(`${GOOGLE_BOOKS_API_BASE}/volumes`, ({ request }) => {
+          const url = new URL(request.url);
+          expect(url.searchParams.get("q")).toBe("9782070368229");
+          return HttpResponse.json(buildSearchResponse());
+        }),
+      );
+
+      await searchBooks("9782070368229");
+    });
+
+    it("ignores inauthor when the query is an ISBN", async () => {
+      server.use(
+        http.get(`${GOOGLE_BOOKS_API_BASE}/volumes`, ({ request }) => {
+          const url = new URL(request.url);
+          expect(url.searchParams.get("q")).toBe("isbn:9782070368228");
+          return HttpResponse.json(buildSearchResponse());
+        }),
+      );
+
+      await searchBooks("9782070368228", { inauthor: "camus" });
+    });
+  });
+
+  describe("normalizeIsbn", () => {
+    it("normalizes an ISBN-13 with and without hyphens", () => {
+      expect(normalizeIsbn("9782070368228")).toBe("9782070368228");
+      expect(normalizeIsbn("978-2-07-036822-8")).toBe("9782070368228");
+      expect(normalizeIsbn("978 2 07 036822 8")).toBe("9782070368228");
+    });
+
+    it("normalizes an ISBN-10 with a trailing X", () => {
+      expect(normalizeIsbn("080442957X")).toBe("080442957X");
+      expect(normalizeIsbn("0-8044-2957-x")).toBe("080442957X");
+    });
+
+    it("returns null for an ISBN-13 with an invalid checksum", () => {
+      expect(normalizeIsbn("9782070368229")).toBeNull();
+    });
+
+    it("returns null for an ISBN-10 with an invalid checksum", () => {
+      expect(normalizeIsbn("0804429570")).toBeNull();
+    });
+
+    it("returns null for free-text and numeric titles of the wrong length", () => {
+      expect(normalizeIsbn("the hobbit")).toBeNull();
+      expect(normalizeIsbn("1984")).toBeNull();
+      expect(normalizeIsbn("123456789012")).toBeNull();
     });
   });
 
