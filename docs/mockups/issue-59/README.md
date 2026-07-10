@@ -95,8 +95,11 @@ No production code is written in this issue — implementation is a separate iss
   title, explanatory copy, then two stacked actions:
   - **Primary** `bg-accent text-white rounded-[10px] min-h-[50px]` →
     *Enter ISBN manually* (opens screen 4).
-  - **Secondary** `text-accent` link → *Open Settings* (deep-links to OS settings;
-    no-op on unsupported browsers — hide when unavailable).
+  - **Secondary** `text-accent` link → *Try again* (re-invokes `getUserMedia`).
+    A WebKit permission denial is generally not permanent, so a fresh prompt can
+    surface in a later session. The explanatory copy still points the user to their
+    device Settings for the permanently-denied case — there is no web API to
+    deep-link into iOS Settings, so no such button is offered.
 - Reuses the empty-state layout idiom from issue #9.
 
 ### Manual ISBN entry → `src/components/books/IsbnEntrySheet` (new, `'use client'`)
