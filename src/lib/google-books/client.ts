@@ -1,9 +1,15 @@
 import "server-only";
 
+import { normalizeIsbn } from "@/lib/books/isbn";
 import type {
   GoogleBooksSearchResponse,
   GoogleBooksVolume,
 } from "@/types/books";
+
+// Re-exported so existing importers (and their tests) can keep pulling
+// normalizeIsbn from the Google Books client; the implementation lives in the
+// client-safe @/lib/books/isbn module shared with the scanner UI.
+export { normalizeIsbn };
 
 const GOOGLE_BOOKS_API_BASE = "https://www.googleapis.com/books/v1";
 
@@ -32,43 +38,6 @@ function getApiKey(): string {
  */
 export function toHttps(url: string): string {
   return url.replace(/^http:\/\//, "https://");
-}
-
-function isValidIsbn13(isbn: string): boolean {
-  let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    sum += Number(isbn[i]) * (i % 2 === 0 ? 1 : 3);
-  }
-  const check = (10 - (sum % 10)) % 10;
-  return check === Number(isbn[12]);
-}
-
-function isValidIsbn10(isbn: string): boolean {
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += Number(isbn[i]) * (10 - i);
-  }
-  sum += isbn[9] === "X" ? 10 : Number(isbn[9]);
-  return sum % 11 === 0;
-}
-
-/**
- * Detects whether a search query is an ISBN and returns it normalized
- * (hyphens and spaces stripped), or null otherwise. The checksum is validated
- * so numeric titles are not mistaken for an ISBN.
- */
-export function normalizeIsbn(query: string): string | null {
-  const stripped = query.replace(/[\s-]/g, "").toUpperCase();
-
-  if (/^\d{13}$/.test(stripped) && isValidIsbn13(stripped)) {
-    return stripped;
-  }
-
-  if (/^\d{9}[\dX]$/.test(stripped) && isValidIsbn10(stripped)) {
-    return stripped;
-  }
-
-  return null;
 }
 
 export interface SearchBooksOptions {

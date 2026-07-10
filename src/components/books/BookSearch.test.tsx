@@ -16,12 +16,39 @@ vi.mock("@/actions/books", () => ({
   addBook: vi.fn(),
 }));
 
+// BookSearch statically imports BarcodeScanner, which pulls in ZXing. Mock the
+// decoder so opening the scanner and driving a decode work without a camera.
+const stop = vi.fn();
+const decodeFromConstraints = vi.fn();
+let fireDecode: (result: { getText: () => string }) => void = () => {};
+
+vi.mock("@zxing/browser", () => ({
+  BrowserMultiFormatReader: class {
+    decodeFromConstraints(
+      _constraints: unknown,
+      _video: unknown,
+      cb: (result: { getText: () => string }) => void,
+    ) {
+      fireDecode = cb;
+      return decodeFromConstraints(_constraints, _video, cb);
+    }
+  },
+}));
+
+vi.mock("@zxing/library", () => ({
+  BarcodeFormat: { EAN_13: 3 },
+  DecodeHintType: { POSSIBLE_FORMATS: 2 },
+}));
+
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   fetchMock.mockReset();
   fetchMock.mockResolvedValue({ ok: true, json: async () => ({ results: [] }) });
   vi.stubGlobal("fetch", fetchMock);
+  stop.mockReset();
+  decodeFromConstraints.mockReset();
+  decodeFromConstraints.mockResolvedValue({ stop });
 });
 
 afterEach(() => {
@@ -137,5 +164,43 @@ describe("BookSearch", () => {
 
     expect(screen.getByRole("button", { name: "French" }).getAttribute("aria-pressed")).toBe("true");
     expect((screen.getByLabelText("Filter by author") as HTMLInputElement).value).toBe("Herbert");
+  });
+
+  it("opens the scanner and searches with the decoded ISBN", async () => {
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan ISBN barcode" }));
+
+    await waitFor(() => expect(decodeFromConstraints).toHaveBeenCalled());
+    expect(screen.getByText("Point at the barcode on the back cover")).toBeTruthy();
+
+    fireDecode({ getText: () => "9782070368228" });
+
+    await waitFor(
+      () => {
+        const url = lastFetchedUrl();
+        expect(url.pathname).toBe("/api/books/search");
+        expect(url.searchParams.get("q")).toBe("9782070368228");
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it("searches with a manually entered ISBN", async () => {
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan ISBN barcode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter ISBN manually" }));
+
+    fireEvent.change(screen.getByLabelText("ISBN"), { target: { value: "9782070368228" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(
+      () => {
+        const url = lastFetchedUrl();
+        expect(url.searchParams.get("q")).toBe("9782070368228");
+      },
+      { timeout: 2000 },
+    );
   });
 });
