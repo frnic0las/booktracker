@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #59 · ISBN barcode scanner flow</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Identical to issue #8 / #9 mockups; maps 1:1 to Tailwind @theme.
+         No new tokens are introduced in this issue.
+         ============================================================ */
+      :root {
+        /* Surfaces */
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        /* Text */
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        /* Accent */
+        --accent: #0a84ff;
+        --accent-pressed: #0060df;
+        --destructive: #ff453a;
+
+        /* Status hues */
+        --reading: #ff9f0a;
+        --read: #30d158;
+        --want: #5e5ce6;
+
+        /* Radii */
+        --r-card: 12px;
+        --r-control: 10px;
+        --r-pill: 999px;
+
+        /* Layout */
+        --safe-bottom: 34px;
+        --nav-height: 56px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #050506;
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 24px 80px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .page-title {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+      .page-title h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+      .page-title p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+
+      /* ---------- Device frame (390 × 750) ---------- */
+      .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .frame-label {
+        font-size: 13px; font-weight: 600; color: var(--text-secondary);
+        letter-spacing: 0.01em;
+        max-width: 390px; text-align: center;
+      }
+      .device {
+        width: 390px;
+        height: 750px;
+        background: var(--bg);
+        border-radius: 44px;
+        border: 10px solid #1c1c1f;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Status bar (iOS) */
+      .statusbar {
+        height: 50px;
+        flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 26px;
+        font-size: 15px; font-weight: 600;
+        color: var(--text-primary);
+        z-index: 5;
+      }
+      .statusbar .glyphs { display: flex; align-items: center; gap: 6px; }
+      /* Light glyphs when the status bar sits over the camera feed */
+      .statusbar.over-camera { color: #fff; }
+
+      /* ---------- Search page (entry point) ---------- */
+      .app-header {
+        padding: 4px 20px 8px;
+        display: flex; align-items: flex-end; justify-content: space-between;
+      }
+      .app-header h2 {
+        font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+      }
+      .modal-bar {
+        padding: 2px 16px 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .search-field {
+        flex: 1 1 auto;
+        display: flex; align-items: center; gap: 8px;
+        background: var(--surface-1);
+        border-radius: var(--r-control);
+        padding: 9px 12px;
+        color: var(--text-secondary);
+      }
+      .search-field .placeholder { font-size: 16px; color: var(--text-tertiary); }
+      /* Scan button — trailing affordance inside the search bar row */
+      .scan-btn {
+        flex: 0 0 auto;
+        width: 44px; height: 44px;
+        display: flex; align-items: center; justify-content: center;
+        border: none; background: transparent;
+        color: var(--accent);
+        border-radius: var(--r-control);
+        cursor: pointer;
+      }
+      .scan-btn:active { background: var(--surface-1); }
+      .cancel-btn {
+        flex: 0 0 auto; border: none; background: transparent;
+        color: var(--accent); font-size: 16px; font-weight: 400;
+        white-space: nowrap;
+      }
+
+      .empty-hint {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; padding: 0 40px 80px;
+        text-align: center; color: var(--text-tertiary);
+      }
+      .empty-hint .big-icon { color: var(--text-tertiary); opacity: 0.7; }
+      .empty-hint p { font-size: 15px; line-height: 1.4; }
+      .empty-hint .scan-cta {
+        margin-top: 6px;
+        display: inline-flex; align-items: center; gap: 8px;
+        background: var(--surface-1);
+        color: var(--accent);
+        font-size: 15px; font-weight: 600;
+        padding: 12px 20px; min-height: 44px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--separator);
+      }
+
+      /* ---------- Scanner view (full-screen camera) ---------- */
+      .camera {
+        flex: 1 1 auto;
+        position: absolute; inset: 0;
+        /* Simulated camera feed: a dim, slightly warm book back cover */
+        background:
+          radial-gradient(120% 80% at 50% 35%, #3a3730 0%, #1b1a17 55%, #0b0b0a 100%);
+        overflow: hidden;
+      }
+      /* A faux book back cover with a barcode, sitting in the frame */
+      .faux-cover {
+        position: absolute;
+        top: 46%; left: 50%;
+        width: 250px; height: 330px;
+        transform: translate(-50%, -50%) rotate(-1.5deg);
+        background: linear-gradient(160deg, #6b6257, #4a443c);
+        border-radius: 6px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      }
+      .faux-cover .barcode {
+        position: absolute;
+        bottom: 26px; left: 50%;
+        transform: translateX(-50%);
+        width: 150px; height: 62px;
+        background: #f4f2ec;
+        border-radius: 3px;
+        padding: 8px 10px 4px;
+        display: flex; flex-direction: column; gap: 4px;
+      }
+      .faux-cover .bars {
+        flex: 1 1 auto;
+        background: repeating-linear-gradient(90deg,
+          #17150f 0, #17150f 2px, transparent 2px, transparent 4px,
+          #17150f 4px, #17150f 5px, transparent 5px, transparent 9px,
+          #17150f 9px, #17150f 12px, transparent 12px, transparent 14px);
+      }
+      .faux-cover .digits {
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 9px; letter-spacing: 1px; color: #17150f; text-align: center;
+      }
+
+      /* Dark scrim with a transparent scan window punched out */
+      .scan-scrim {
+        position: absolute; inset: 0;
+        /* Four panels forming a mask around a centered window */
+        pointer-events: none;
+      }
+      .scan-scrim::before {
+        content: "";
+        position: absolute; inset: 0;
+        background: rgba(5,5,6,0.62);
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        /* clear window ≈ 300px wide, 180px tall, centered in the 370×730 feed */
+        padding: 275px 35px;
+      }
+      .reticle {
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 300px; height: 180px;
+        transform: translate(-50%, -50%);
+      }
+      .reticle .corner {
+        position: absolute;
+        width: 30px; height: 30px;
+        border: 3px solid #fff;
+      }
+      .reticle .tl { top: 0; left: 0; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
+      .reticle .tr { top: 0; right: 0; border-left: none; border-bottom: none; border-top-right-radius: 8px; }
+      .reticle .bl { bottom: 0; left: 0; border-right: none; border-top: none; border-bottom-left-radius: 8px; }
+      .reticle .br { bottom: 0; right: 0; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
+      /* Scanning laser line */
+      .reticle .laser {
+        position: absolute; left: 10px; right: 10px; top: 50%;
+        height: 2px; border-radius: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 12px 2px rgba(10,132,255,0.8);
+      }
+      /* Detected/valid reticle turns green */
+      .reticle.detected .corner { border-color: var(--read); }
+
+      .scan-hint {
+        position: absolute;
+        top: calc(50% + 120px); left: 0; right: 0;
+        text-align: center;
+        color: #fff; font-size: 15px; font-weight: 500;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        padding: 0 40px;
+      }
+      .scan-cancel {
+        position: absolute; top: 8px; left: 12px;
+        width: 44px; height: 44px;
+        display: flex; align-items: center; justify-content: center;
+        border: none; background: transparent; color: #fff;
+        z-index: 6;
+      }
+      /* Bottom control cluster over the camera */
+      .scan-bottom {
+        position: absolute; left: 0; right: 0;
+        bottom: calc(var(--safe-bottom) + 8px);
+        display: flex; justify-content: center;
+      }
+      .manual-link {
+        display: inline-flex; align-items: center; gap: 8px;
+        min-height: 44px; padding: 10px 18px;
+        background: rgba(22,22,24,0.72);
+        -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: var(--r-pill);
+        color: #fff; font-size: 15px; font-weight: 600;
+      }
+
+      /* ---------- Permission denied ---------- */
+      .state-screen {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 16px; padding: 0 32px 60px; text-align: center;
+      }
+      .state-screen .state-icon {
+        width: 72px; height: 72px; border-radius: 999px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--surface-1);
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+      }
+      .state-screen h3 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .state-screen p { font-size: 15px; line-height: 1.45; color: var(--text-secondary); max-width: 300px; }
+      .btn-primary {
+        min-height: 50px; width: 100%; max-width: 320px;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        background: var(--accent); color: #fff;
+        font-size: 16px; font-weight: 600;
+        border: none; border-radius: var(--r-control);
+        margin-top: 8px;
+      }
+      .btn-secondary {
+        min-height: 50px; width: 100%; max-width: 320px;
+        display: flex; align-items: center; justify-content: center;
+        background: transparent; color: var(--accent);
+        font-size: 16px; font-weight: 500;
+        border: none;
+      }
+
+      /* ---------- Manual ISBN entry ---------- */
+      .sheet-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 16px 6px;
+      }
+      .sheet-header .title { font-size: 17px; font-weight: 700; }
+      .sheet-header .close, .sheet-header .done {
+        border: none; background: transparent; color: var(--accent);
+        font-size: 16px; min-height: 44px; padding: 0 4px;
+      }
+      .sheet-header .done { font-weight: 600; }
+      .isbn-body { padding: 8px 20px; }
+      .isbn-body label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+        margin: 12px 4px 8px;
+      }
+      .isbn-input {
+        width: 100%;
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-control);
+        padding: 14px 16px;
+        color: var(--text-primary);
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 20px; letter-spacing: 2px;
+      }
+      .isbn-input.focused { outline: 2px solid var(--accent); border-color: transparent; }
+      .isbn-help { font-size: 13px; color: var(--text-tertiary); margin: 10px 4px 0; line-height: 1.4; }
+      /* Numeric keypad (iOS-style) */
+      .keypad {
+        margin-top: auto;
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 8px; padding: 10px 8px calc(var(--safe-bottom) + 6px);
+        background: var(--surface-1);
+      }
+      .keypad button {
+        min-height: 48px;
+        background: var(--surface-2);
+        border: none; border-radius: 8px;
+        color: var(--text-primary); font-size: 22px; font-weight: 500;
+        box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+      }
+      .keypad button.blank { background: transparent; box-shadow: none; }
+      .keypad button.del { background: transparent; box-shadow: none; color: var(--text-secondary); }
+
+      /* ---------- Detection feedback ---------- */
+      .detect-screen {
+        flex: 1 1 auto; position: absolute; inset: 0;
+        background: radial-gradient(120% 80% at 50% 35%, #1c2a1c 0%, #0d130d 60%, #0a0a0b 100%);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 18px; padding: 0 36px;
+      }
+      .detect-check {
+        width: 84px; height: 84px; border-radius: 999px;
+        background: var(--read); color: #06210f;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 10px 30px rgba(48,209,88,0.35);
+      }
+      .detect-screen .detected-isbn {
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 15px; letter-spacing: 1px; color: var(--read);
+      }
+      .detect-screen h3 { font-size: 19px; font-weight: 700; }
+      /* Mini book preview card that resolves from the ISBN */
+      .detect-card {
+        margin-top: 4px;
+        display: flex; align-items: center; gap: 12px;
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-card);
+        padding: 12px 14px; width: 100%; max-width: 320px;
+      }
+      .detect-card .mini-thumb {
+        flex: 0 0 auto; width: 40px; aspect-ratio: 2/3;
+        border-radius: 4px; overflow: hidden;
+        background: linear-gradient(150deg, #2f5d8a, #122a44);
+      }
+      .detect-card .mt { font-size: 15px; font-weight: 600; }
+      .detect-card .ma { font-size: 13px; color: var(--text-secondary); }
+      .detect-spinner-note { font-size: 13px; color: var(--text-tertiary); }
+
+      /* Generic scrolling content area */
+      .scroll { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; }
+      .flex-fill { flex: 1 1 auto; }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      <h1>BookTracker · Issue #59</h1>
+      <p>ISBN barcode scanner flow — dark theme, iOS-native, 390px viewport. Tokens inherited from issue&nbsp;#8.</p>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 1 — Entry point (search page + scan affordance)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">1 · Entry point — scan button in the search bar</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <span class="placeholder">Title, author, or ISBN</span>
+          </div>
+          <!-- Scan affordance: 44×44 barcode glyph, trailing the field -->
+          <button class="scan-btn" aria-label="Scan ISBN barcode">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <path d="M7 8v8M10 8v8M13 8v8M17 8v8"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="empty-hint">
+          <svg class="big-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+          </svg>
+          <p>Search Google Books by title or author —<br/>or scan a book's barcode to add it instantly.</p>
+          <div class="scan-cta">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>
+            Scan barcode
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 2 — Scanner view (full-screen camera + reticle)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">2 · Scanner — camera viewport, reticle &amp; hint</div>
+      <div class="device">
+        <div class="camera">
+          <div class="faux-cover">
+            <div class="barcode">
+              <div class="bars"></div>
+              <div class="digits">9 780441 013593</div>
+            </div>
+          </div>
+          <div class="scan-scrim"></div>
+          <div class="reticle">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <span class="laser"></span>
+          </div>
+          <div class="scan-hint">Point at the barcode on the back cover</div>
+        </div>
+
+        <div class="statusbar over-camera">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.6"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.6"/></svg>
+          </span>
+        </div>
+
+        <button class="scan-cancel" aria-label="Cancel scan">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+
+        <div class="scan-bottom">
+          <button class="manual-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h8"/></svg>
+            Enter ISBN manually
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 3 — Permission denied
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">3 · Camera permission denied</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <button class="scan-cancel" style="color: var(--accent);" aria-label="Close">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+
+        <div class="state-screen">
+          <div class="state-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/><path d="M2 2l20 20"/>
+            </svg>
+          </div>
+          <h3>Camera access needed</h3>
+          <p>To scan a barcode, allow camera access for BookTracker in your device Settings. You can also add the book by typing its ISBN.</p>
+          <button class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h8"/></svg>
+            Enter ISBN manually
+          </button>
+          <button class="btn-secondary">Try again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 4 — Manual ISBN entry fallback
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">4 · Manual ISBN entry — numeric fallback</div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="sheet-header">
+          <button class="close">Cancel</button>
+          <span class="title">Enter ISBN</span>
+          <button class="done">Search</button>
+        </div>
+
+        <div class="isbn-body">
+          <label>ISBN-13 or ISBN-10</label>
+          <div class="isbn-input focused">9780441013593<span style="color:var(--accent);font-weight:400;">|</span></div>
+          <p class="isbn-help">Found under the barcode on the back cover. Digits only — hyphens are added automatically.</p>
+        </div>
+
+        <div class="flex-fill"></div>
+
+        <div class="keypad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button class="blank"></button>
+          <button>0</button>
+          <button class="del" aria-label="Delete">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M16 9l-4 6M12 9l4 6" stroke-width="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SCREEN 5 — Detection feedback (before landing on result)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">5 · Detection feedback — brief confirmation</div>
+      <div class="device">
+        <div class="detect-screen">
+          <div class="detect-check">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <h3>Barcode detected</h3>
+          <div class="detected-isbn">ISBN 978-0-441-01359-3</div>
+          <div class="detect-card">
+            <div class="mini-thumb"></div>
+            <div>
+              <div class="mt">Dune</div>
+              <div class="ma">Frank Herbert</div>
+            </div>
+          </div>
+          <div class="detect-spinner-note">Opening book…</div>
+        </div>
+
+        <div class="statusbar over-camera">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.6"/><rect x="2.5" y="2.5" width="15" height="7" rx="1.5" fill="currentColor"/><rect x="22" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" fill-opacity="0.6"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
