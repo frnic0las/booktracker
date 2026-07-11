@@ -2,6 +2,7 @@ export interface EmptyStateProps {
   title: string;
   description: string;
   icon?: React.ReactNode;
+  action?: React.ReactNode;
 }
 
 const DEFAULT_ICON = (
@@ -11,7 +12,7 @@ const DEFAULT_ICON = (
   </svg>
 );
 
-export function EmptyState({ title, description, icon }: EmptyStateProps): React.JSX.Element {
+export function EmptyState({ title, description, icon, action }: EmptyStateProps): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3.5 px-10 pb-28 pt-10 text-center">
       <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-separator bg-surface-1 text-tertiary">
@@ -19,6 +20,7 @@ export function EmptyState({ title, description, icon }: EmptyStateProps): React
       </div>
       <h3 className="text-[17px] font-bold text-primary">{title}</h3>
       <p className="max-w-[250px] text-sm leading-snug text-secondary">{description}</p>
+      {action ? <div className="mt-1.5">{action}</div> : null}
     </div>
   );
 }
