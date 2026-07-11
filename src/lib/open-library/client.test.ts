@@ -110,34 +110,20 @@ describe("open-library client", () => {
       await searchOpenLibrary("the hobbit", { langRestrict: "fr" });
     });
 
-    it("short-circuits with an empty result, making no network request, when langRestrict has no MARC mapping", async () => {
+    it("ignores an unmapped langRestrict and makes the request unfiltered", async () => {
       let requestReceived = false;
       server.use(
-        http.get(`${OPEN_LIBRARY_BASE}/search.json`, () => {
+        http.get(`${OPEN_LIBRARY_BASE}/search.json`, ({ request }) => {
           requestReceived = true;
+          const url = new URL(request.url);
+          expect(url.searchParams.has("language")).toBe(false);
           return HttpResponse.json(buildSearchResponse());
         }),
       );
 
-      const result = await searchOpenLibrary("the hobbit", { langRestrict: "xx" });
+      await searchOpenLibrary("the hobbit", { langRestrict: "xx" });
 
-      expect(result).toEqual({ numFound: 0, docs: [] });
-      expect(requestReceived).toBe(false);
-    });
-
-    it("short-circuits without a network request for an unmapped 2-letter lang code that isn't 'xx' (e.g. Swedish)", async () => {
-      let requestReceived = false;
-      server.use(
-        http.get(`${OPEN_LIBRARY_BASE}/search.json`, () => {
-          requestReceived = true;
-          return HttpResponse.json(buildSearchResponse());
-        }),
-      );
-
-      const result = await searchOpenLibrary("the hobbit", { langRestrict: "sv" });
-
-      expect(result).toEqual({ numFound: 0, docs: [] });
-      expect(requestReceived).toBe(false);
+      expect(requestReceived).toBe(true);
     });
 
     it("returns the parsed search response on success", async () => {

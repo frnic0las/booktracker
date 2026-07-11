@@ -42,14 +42,9 @@ export async function searchOpenLibrary(
   options?: SearchOpenLibraryOptions,
 ): Promise<OpenLibrarySearchResponse> {
   const isbn = normalizeIsbn(query);
+  // An unmapped language code is left off the request entirely, so OpenLibrary
+  // returns results unfiltered by language rather than short-circuiting.
   const marc = options?.langRestrict ? ISO_639_1_TO_MARC[options.langRestrict] : undefined;
-
-  // A language filter OpenLibrary can't honour would be silently dropped,
-  // returning results in every language. Skip OpenLibrary entirely in that case
-  // so the caller falls back to Google Books, which honours langRestrict as-is.
-  if (options?.langRestrict && !marc) {
-    return { numFound: 0, docs: [] };
-  }
 
   const fields = "key,title,author_name,first_publish_year,number_of_pages_median,cover_i,isbn";
   let url = `${OPEN_LIBRARY_BASE}/search.json?fields=${encodeURIComponent(fields)}&limit=20`;
