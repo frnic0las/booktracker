@@ -60,4 +60,33 @@ describe("SearchResultRow", () => {
 
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  it("renders the GB source badge for a googleBooks result", () => {
+    render(<SearchResultRow result={buildResult({ source: "googleBooks" })} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("GB")).toBeTruthy();
+  });
+
+  it("renders the OL source badge for an openLibrary result", () => {
+    render(<SearchResultRow result={buildResult({ source: "openLibrary" })} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("OL")).toBeTruthy();
+  });
+
+  it("renders the source badge on a cover-less result too", () => {
+    render(
+      <SearchResultRow
+        result={buildResult({ coverUrl: null, source: "openLibrary" })}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("OL")).toBeTruthy();
+  });
+
+  it("keeps the badge non-interactive (pointer-events-none) so clicks always hit the row button", () => {
+    render(<SearchResultRow result={buildResult()} onSelect={vi.fn()} />);
+
+    expect(screen.getByText("GB").className).toContain("pointer-events-none");
+  });
 });

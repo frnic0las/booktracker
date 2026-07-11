@@ -7,16 +7,54 @@ import { AddBookSheet } from '@/components/books/AddBookSheet';
 import { BarcodeScanner } from '@/components/books/BarcodeScanner';
 import { IsbnEntrySheet } from '@/components/books/IsbnEntrySheet';
 import { SearchFilters, isValidLang } from '@/components/books/SearchFilters';
-import { SearchResultGroup } from '@/components/books/SearchResultGroup';
+import { SOURCE_LABEL, SearchResultGroup } from '@/components/books/SearchResultGroup';
 import { SearchResultSkeleton } from '@/components/books/SearchResultSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { BookCategory, BookSearchResult } from '@/types/books';
+import type { BookCategory, BookSearchResponse, BookSearchResult, BookSource } from '@/types/books';
 
 export interface BookSearchProps {
   initialCategory: BookCategory;
   from: string;
+}
+
+// The results and the failed sources always describe one specific query. Kept
+// in a single state object so a render can never pair one query's results with
+// another's — mid-flight, that pairing is what made the UI claim "nothing
+// matched" before the request had even left.
+interface SearchState {
+  query: string;
+  results: BookSearchResult[];
+  failedSources: BookSource[];
+}
+
+// The copy must never claim a book is absent from a catalog whose call actually
+// failed — only name the catalogs that answered.
+function noResultsDescription(query: string, failedSources: BookSource[]): string {
+  const answered = (['openLibrary', 'googleBooks'] as const).filter(
+    (source) => !failedSources.includes(source),
+  );
+
+  if (answered.length === 0) {
+    return `Couldn’t reach OpenLibrary or Google Books. Try again in a moment.`;
+  }
+
+  if (answered.length === 1) {
+    const failed = failedSources[0];
+    return `Nothing matched “${query}” in ${SOURCE_LABEL[answered[0]]}. ${SOURCE_LABEL[failed]} couldn’t be reached — try again in a moment.`;
+  }
+
+  return `Nothing matched “${query}” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.`;
+}
+
+// Names the catalogs that failed while the other still returned results — the
+// remaining group header says "this came from X", never "this is not in Y".
+function degradedNotice(failedSources: BookSource[]): string {
+  const labels = failedSources.map((source) => SOURCE_LABEL[source]).join(' and ');
+  const verb = failedSources.length === 1 ? 'wasn’t' : 'weren’t';
+
+  return `${labels} ${verb} reachable — these results are partial.`;
 }
 
 export function BookSearch({ initialCategory, from }: BookSearchProps): React.JSX.Element {
@@ -24,9 +62,10 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
   const [query, setQuery] = useState('');
   const [lang, setLang] = useState('');
   const [author, setAuthor] = useState('');
-  const [results, setResults] = useState<BookSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [search, setSearch] = useState<SearchState | null>(null);
+  // The query whose fetch failed, not a bare flag — so a previous query's error
+  // cannot render against the one the user is typing now.
+  const [failedQuery, setFailedQuery] = useState<string | null>(null);
   const [selected, setSelected] = useState<BookSearchResult | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -39,16 +78,12 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
   useEffect(() => {
     const controller = new AbortController();
 
-    async function search(): Promise<void> {
+    async function run(): Promise<void> {
       if (!debouncedQuery) {
-        setResults([]);
-        setLoading(false);
-        setError(false);
+        setSearch(null);
+        setFailedQuery(null);
         return;
       }
-
-      setLoading(true);
-      setError(false);
 
       const params = new URLSearchParams({ q: debouncedQuery });
 
@@ -66,22 +101,27 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
         });
 
         if (!response.ok) {
-          setError(true);
+          setFailedQuery(debouncedQuery);
           return;
         }
 
-        const data = (await response.json()) as { results: BookSearchResult[] };
-        setResults(data.results);
+        // The body is an unvalidated cast: tolerate a payload without
+        // failedSources rather than rendering `undefined` into the copy.
+        const data = (await response.json()) as BookSearchResponse;
+        setFailedQuery(null);
+        setSearch({
+          query: debouncedQuery,
+          results: data.results ?? [],
+          failedSources: data.failedSources ?? [],
+        });
       } catch (err) {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          setError(true);
+          setFailedQuery(debouncedQuery);
         }
-      } finally {
-        setLoading(false);
       }
     }
 
-    void search();
+    void run();
 
     return () => controller.abort();
   }, [debouncedQuery, debouncedLang, debouncedAuthor]);
@@ -149,19 +189,27 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
               </button>
             }
           />
-        ) : loading ? (
-          <SearchResultSkeleton />
-        ) : error ? (
+        ) : failedQuery === debouncedQuery ? (
           <EmptyState title="Something went wrong" description="Couldn't reach the book catalogs. Try again." />
-        ) : results.length === 0 ? (
+        ) : search?.query !== debouncedQuery ? (
+          <SearchResultSkeleton />
+        ) : search.results.length === 0 ? (
           <EmptyState
             title="Book not found"
-            description={`Nothing matched “${debouncedQuery}” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.`}
+            description={noResultsDescription(debouncedQuery, search.failedSources)}
           />
         ) : (
           <div className="pb-4">
+            {search.failedSources.length > 0 ? (
+              <p className="px-4 pt-2.5 text-xs text-tertiary">
+                {degradedNotice(search.failedSources)}
+              </p>
+            ) : null}
             {(['openLibrary', 'googleBooks'] as const)
-              .map((source) => ({ source, items: results.filter((r) => r.source === source) }))
+              .map((source) => ({
+                source,
+                items: search.results.filter((result) => result.source === source),
+              }))
               .filter((group) => group.items.length > 0)
               .map((group) => (
                 <SearchResultGroup

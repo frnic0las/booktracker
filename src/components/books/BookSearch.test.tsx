@@ -293,13 +293,20 @@ describe("BookSearch", () => {
 
     fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Zzzzzz" } });
 
-    await waitFor(() => expect(screen.getByText("Book not found")).toBeTruthy(), { timeout: 1500 });
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "Nothing matched “Zzzzzz” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.",
+          ),
+        ).toBeTruthy(),
+      { timeout: 1500 },
+    );
 
-    const description = screen.getByText(/OpenLibrary/);
-    expect(description.textContent).toContain("Google Books");
+    expect(screen.getByText("Book not found")).toBeTruthy();
   });
 
-  it("does not render OL/GB badge text on rows — the source is announced once via the group header", async () => {
+  it("renders a source badge on every row, alongside the group headers", async () => {
     const googleBooksResult = buildResult({ id: "gb1", title: "Dune", source: "googleBooks" });
     const openLibraryResult = buildResult({ id: "OL1W", title: "Dune Messiah", source: "openLibrary" });
 
@@ -314,7 +321,119 @@ describe("BookSearch", () => {
 
     await waitFor(() => expect(screen.getByText("Dune Messiah")).toBeTruthy(), { timeout: 1500 });
 
-    expect(screen.queryByText("OL")).toBeNull();
-    expect(screen.queryByText("GB")).toBeNull();
+    expect(screen.getByText("OpenLibrary")).toBeTruthy();
+    expect(screen.getByText("Google Books")).toBeTruthy();
+    expect(screen.getAllByText("OL")).toHaveLength(1);
+    expect(screen.getAllByText("GB")).toHaveLength(1);
+  });
+
+  it("shows 'Book not found' naming both catalogs when both sources answered with no results", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [], failedSources: [] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Zzzzzz" } });
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "Nothing matched “Zzzzzz” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.",
+          ),
+        ).toBeTruthy(),
+      { timeout: 1500 },
+    );
+
+    expect(screen.getByText("Book not found")).toBeTruthy();
+  });
+
+  it("names only Google Books when OpenLibrary failed and Google Books returned no results", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [], failedSources: ["openLibrary"] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Zzzzzz" } });
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "Nothing matched “Zzzzzz” in Google Books. OpenLibrary couldn’t be reached — try again in a moment.",
+          ),
+        ).toBeTruthy(),
+      { timeout: 1500 },
+    );
+
+    expect(screen.getByText("Book not found")).toBeTruthy();
+  });
+
+  it("names only OpenLibrary when Google Books failed and OpenLibrary returned no results", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [], failedSources: ["googleBooks"] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Zzzzzz" } });
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            "Nothing matched “Zzzzzz” in OpenLibrary. Google Books couldn’t be reached — try again in a moment.",
+          ),
+        ).toBeTruthy(),
+      { timeout: 1500 },
+    );
+
+    expect(screen.getByText("Book not found")).toBeTruthy();
+  });
+
+  it("shows a degraded notice naming the failed source above the results when a partial failure still has results", async () => {
+    const googleBooksResult = buildResult({ id: "gb1", title: "Dune", source: "googleBooks" });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [googleBooksResult], failedSources: ["openLibrary"] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("OpenLibrary wasn’t reachable — these results are partial."),
+        ).toBeTruthy(),
+      { timeout: 1500 },
+    );
+
+    expect(screen.getByText("Dune")).toBeTruthy();
+  });
+
+  it("renders no degraded notice when failedSources is empty", async () => {
+    const googleBooksResult = buildResult({ id: "gb1", title: "Dune", source: "googleBooks" });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [googleBooksResult], failedSources: [] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(() => expect(screen.getByText("Dune")).toBeTruthy(), { timeout: 1500 });
+
+    expect(screen.queryByText(/wasn’t reachable/)).toBeNull();
+    expect(screen.queryByText(/weren’t reachable/)).toBeNull();
   });
 });

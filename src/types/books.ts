@@ -43,6 +43,11 @@ export interface BookSearchResult {
   source: BookSource;
 }
 
+export interface BookSearchResponse {
+  results: BookSearchResult[];
+  failedSources: BookSource[];
+}
+
 export interface LibraryEntry {
   userBookId: string;
   status: ReadingStatus;
