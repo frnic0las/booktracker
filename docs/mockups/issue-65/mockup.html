@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookTracker — Issue #65 · Search results with source badges (OL/GB)</title>
+    <style>
+      /* ============================================================
+         Design tokens — BookTracker visual language (dark primary)
+         Identical to issues #8 / #9 / #59; maps 1:1 to Tailwind @theme.
+         No new tokens — no new colours, and no new radii, are introduced.
+         ============================================================ */
+      :root {
+        /* Surfaces */
+        --bg: #0a0a0b;
+        --surface-1: #161618;
+        --surface-2: #202024;
+        --separator: #2a2a2e;
+
+        /* Text */
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1aa;
+        --text-tertiary: #6b6b73;
+
+        /* Accent */
+        --accent: #0a84ff;
+        --accent-pressed: #0060df;
+        --destructive: #ff453a;
+
+        /* Status hues — shown here only to prove the badge does NOT use them */
+        --reading: #ff9f0a;
+        --read: #30d158;
+        --want: #5e5ce6;
+
+        /* Radii — existing scale only (6 / 10 / 12 / pill) */
+        --r-cover: 6px;
+        --r-control: 10px;
+        --r-card: 12px;
+        --r-pill: 999px;
+
+        /* Layout */
+        --safe-bottom: 34px;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #050506;
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 24px 80px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .page-title { width: 100%; text-align: center; margin-bottom: 8px; }
+      .page-title h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+      .page-title p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+
+      /* ---------- Device frame (390 × 750) ---------- */
+      .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .frame-label {
+        font-size: 13px; font-weight: 600; color: var(--text-secondary);
+        max-width: 390px; text-align: center; line-height: 1.45;
+      }
+      .frame-label span { display: block; font-weight: 400; color: var(--text-tertiary); margin-top: 2px; }
+      .device {
+        width: 390px; height: 750px;
+        background: var(--bg);
+        border-radius: 44px;
+        border: 10px solid #1c1c1f;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+        position: relative;
+        overflow: hidden;
+        display: flex; flex-direction: column;
+      }
+
+      .statusbar {
+        height: 50px; flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 26px;
+        font-size: 15px; font-weight: 600;
+        z-index: 5;
+      }
+      .statusbar .glyphs { display: flex; align-items: center; gap: 6px; }
+      .statusbar.over-camera { color: #fff; }
+
+      /* ---------- Search bar row ---------- */
+      .modal-bar { padding: 2px 16px 10px; display: flex; align-items: center; gap: 10px; }
+      .search-field {
+        flex: 1 1 auto;
+        display: flex; align-items: center; gap: 8px;
+        background: var(--surface-1);
+        border-radius: var(--r-control);
+        padding: 9px 12px;
+        min-height: 40px;
+      }
+      .search-field .value { font-size: 16px; color: var(--text-primary); }
+      .search-field svg { color: var(--text-tertiary); flex: 0 0 auto; }
+      .cancel-btn {
+        flex: 0 0 auto; border: none; background: transparent;
+        color: var(--accent); font-size: 16px; white-space: nowrap;
+      }
+
+      .filters { display: flex; gap: 8px; padding: 0 16px 10px; }
+      .filter-chip {
+        display: inline-flex; align-items: center;
+        height: 32px; padding: 0 12px;
+        background: var(--surface-1);
+        border: 1px solid var(--separator);
+        border-radius: var(--r-pill);
+        font-size: 13px; color: var(--text-secondary);
+      }
+
+      /* ---------- Results list ---------- */
+      .results { flex: 1 1 auto; overflow: hidden; }
+
+      /* Source group header — carries the source NAME, in full, in words.
+         Deliberately monochrome: no coloured dot. --reading is already the
+         "Reading" status dot in AddBookSheet, one tap below these rows. */
+      .group-header {
+        padding: 10px 16px 6px;
+        font-size: 12px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-tertiary);
+      }
+      .group-header .count { font-weight: 400; letter-spacing: 0.02em; }
+
+      .rows { padding: 0 16px; }
+
+      .row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--separator);
+        /* 66px cover + 2×10px padding = 86px — well over the 44px iOS minimum */
+        min-height: 86px;
+      }
+      .row:last-child { border-bottom: none; }
+
+      /* Cover + badge stack. The wrapper is NOT clipped, so the badge can
+         overhang; the inner .cover keeps the overflow:hidden for the image. */
+      .cover-wrap { position: relative; flex: 0 0 auto; width: 44px; }
+      .cover {
+        width: 44px; height: 66px;
+        border-radius: var(--r-cover);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        background: var(--surface-2);
+      }
+      .cover .art {
+        width: 100%; height: 100%;
+        display: flex; align-items: flex-end;
+        padding: 6px 5px;
+        font-size: 7px; font-weight: 700; line-height: 1.15;
+        color: rgba(255, 255, 255, 0.92);
+      }
+      .cover-placeholder {
+        width: 44px; height: 66px;
+        border-radius: var(--r-cover);
+        border: 1px solid var(--separator);
+        background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-tertiary);
+      }
+
+      /* ============================================================
+         SOURCE BADGE — the deliverable of issue #65.
+         Monochrome on purpose. The two letters carry the meaning; the
+         group header above glosses them. Hue carries nothing, because
+         every hue in the palette already means something else.
+         Scheme-independent (white on a dark scrim) because it floats on
+         cover artwork, not on the page canvas — same rule as the camera
+         overlays in issue #59.
+         ============================================================ */
+      .badge {
+        position: absolute;
+        top: -4px; right: -4px;
+        height: 16px; min-width: 24px;
+        padding: 0 6px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: var(--r-cover);
+        font-size: 9px; font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+      }
+
+      .meta { min-width: 0; flex: 1 1 auto; }
+      .meta .title {
+        font-size: 15px; font-weight: 600; line-height: 1.25; color: var(--text-primary);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .meta .author {
+        font-size: 13px; color: var(--text-secondary); margin-top: 2px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .meta .year { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+      .chevron { flex: 0 0 auto; color: var(--text-tertiary); }
+
+      /* ---------- Loading skeleton (Tailwind animate-pulse) ---------- */
+      .sk { background: var(--surface-1); border-radius: 4px; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      .sk-cover { width: 44px; height: 66px; border-radius: var(--r-cover); flex: 0 0 auto; }
+      .sk-line { height: 12px; }
+      .sk-group { height: 11px; width: 96px; margin: 12px 16px 8px; }
+
+      /* ---------- Empty state — mirrors src/components/ui/EmptyState.tsx ---------- */
+      .empty {
+        display: flex; flex-direction: column; align-items: center;
+        gap: 14px; padding: 40px 40px 112px; text-align: center;
+      }
+      .empty .icon-ring {
+        width: 72px; height: 72px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--separator);
+        background: var(--surface-1);
+        color: var(--text-tertiary);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .empty h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+      .empty p { font-size: 14px; line-height: 1.35; color: var(--text-secondary); max-width: 250px; }
+
+      /* ---------- Spec board ---------- */
+      .spec {
+        width: 390px;
+        background: var(--bg);
+        border: 1px solid var(--separator);
+        border-radius: 20px;
+        padding: 22px;
+        display: flex; flex-direction: column; gap: 22px;
+      }
+      .spec h3 { font-size: 15px; font-weight: 700; }
+      .spec h4 {
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 10px;
+      }
+      .spec table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .spec td {
+        padding: 6px 0; border-bottom: 1px solid var(--separator);
+        color: var(--text-secondary); vertical-align: top;
+      }
+      .spec td:first-child { color: var(--text-primary); font-weight: 600; width: 40%; }
+      .spec tr:last-child td { border-bottom: none; }
+      .spec code {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11px; color: var(--text-primary);
+      }
+      .spec .note { font-size: 11px; line-height: 1.5; color: var(--text-tertiary); }
+
+      /* Zoomed anatomy (4×) */
+      .zoom-row { display: flex; gap: 24px; }
+      .zoom {
+        position: relative;
+        width: 132px; height: 198px;
+        border-radius: 24px;
+      }
+      .zoom.dark-art { background: linear-gradient(150deg, #4a5568, #232b36); }
+      .zoom.light-art { background: linear-gradient(150deg, #f3ece0, #d8cbb4); }
+      .zoom .badge-lg {
+        position: absolute; top: -16px; right: -16px;
+        height: 64px; min-width: 96px; padding: 0 24px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 24px;
+        font-size: 36px; font-weight: 700; letter-spacing: 0.06em;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.8);
+        border: 4px solid rgba(255, 255, 255, 0.2);
+      }
+      .zoom-caption { font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 12px; }
+
+      /* Light-scheme check: the badge does not flip */
+      .light-check {
+        background: #ffffff;
+        border-radius: var(--r-card);
+        padding: 14px;
+        display: flex; align-items: center; gap: 14px;
+      }
+      .light-check .cover-lite {
+        position: relative; width: 44px; flex: 0 0 auto;
+      }
+      .light-check .cover-lite .cover { background: linear-gradient(150deg, #f3ece0, #d8cbb4); }
+      .light-check .lite-meta .title { font-size: 13px; font-weight: 600; color: #1c1c1e; }
+      .light-check .lite-meta .author { font-size: 11px; color: #6b6b73; margin-top: 2px; }
+
+      /* Rejected hue variant */
+      .reject { display: flex; gap: 14px; align-items: center; }
+      .reject .swatch {
+        position: relative; width: 44px; flex: 0 0 auto;
+      }
+      .badge.hue-ol { color: var(--reading); border-color: rgba(255, 159, 10, 0.5); }
+      .badge.hue-gb { color: var(--accent); border-color: rgba(10, 132, 255, 0.55); }
+      .status-dot {
+        display: inline-block; width: 7px; height: 7px;
+        border-radius: var(--r-pill); background: var(--reading);
+        margin-right: 5px; vertical-align: middle;
+      }
+      .seg {
+        display: inline-flex; align-items: center;
+        height: 30px; padding: 0 12px;
+        background: var(--surface-2);
+        border-radius: 8px;
+        font-size: 13px; font-weight: 600; color: var(--text-primary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      <h1>Issue #65 — Search results with source badges (OL / GB)</h1>
+      <p>Where a result came from, said once in the header and once on the cover — without stealing a hue that already means something.</p>
+    </div>
+
+    <!-- ============================================================
+         BOARD 1 — Grouped results, both sources
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        1 · Grouped results — both sources
+        <span>The target state. Needs the API to merge OL + GB (it does not, yet — see README).</span>
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="5" width="3" height="6" rx="1"/><rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="15" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 3.6v3.8a2 2 0 0 0 0-3.8z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span class="value">dune</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="filters">
+          <span class="filter-chip">Language: Any</span>
+          <span class="filter-chip">Author</span>
+        </div>
+
+        <div class="results">
+          <p class="group-header">OpenLibrary <span class="count">· 12 results</span></p>
+          <div class="rows">
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #c2703a, #7b3f1d);">Dune</div></div>
+                <span class="badge">OL</span>
+              </div>
+              <div class="meta">
+                <p class="title">Dune</p>
+                <p class="author">Frank Herbert</p>
+                <p class="year">1965</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <!-- Light cover: the scrim is what keeps the letters legible -->
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #f0e7d6, #cdbfa4); color: #3a3226;">Dune Messiah</div></div>
+                <span class="badge">OL</span>
+              </div>
+              <div class="meta">
+                <p class="title">Dune Messiah</p>
+                <p class="author">Frank Herbert</p>
+                <p class="year">1969</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <!-- Cover-less result: badge sits on the placeholder, same coordinates -->
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover-placeholder">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M18 6h2v14H6"/></svg>
+                </div>
+                <span class="badge">OL</span>
+              </div>
+              <div class="meta">
+                <p class="title">The Road to Dune</p>
+                <p class="author">Brian Herbert</p>
+                <p class="year">2005</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+
+          <p class="group-header">Google Books <span class="count">· 8 results</span></p>
+          <div class="rows">
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #8e5ac2, #45256b);">Children of Dune</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">Children of Dune</p>
+                <p class="author">Frank Herbert</p>
+                <p class="year">1976</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #2f5f9e, #16304f);">God Emperor of Dune</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">God Emperor of Dune</p>
+                <p class="author">Frank Herbert</p>
+                <p class="year">1981</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 2 — Single source: what the API returns TODAY
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        2 · Single source — today's API
+        <span>One header, and every badge repeats it. The badge earns nothing here — ship the header alone.</span>
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="5" width="3" height="6" rx="1"/><rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="15" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 3.6v3.8a2 2 0 0 0 0-3.8z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span class="value">the pragmatic programmer</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="filters">
+          <span class="filter-chip">Language: EN</span>
+          <span class="filter-chip">Author</span>
+        </div>
+
+        <div class="results">
+          <p class="group-header">Google Books <span class="count">· 6 results</span></p>
+          <div class="rows">
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #4d5a6b, #232b36);">The Pragmatic Programmer</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">The Pragmatic Programmer</p>
+                <p class="author">David Thomas, Andrew Hunt</p>
+                <p class="year">1999</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #a3572f, #5c2c14);">The Pragmatic Programmer, 20th Anniversary Edition</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">The Pragmatic Programmer, 20th Anniversary Edition</p>
+                <p class="author">David Thomas</p>
+                <p class="year">2019</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #37715e, #1a3a30);">Pragmatic Thinking and Learning</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">Pragmatic Thinking and Learning</p>
+                <p class="author">Andy Hunt</p>
+                <p class="year">2008</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 3 — Loading
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        3 · Loading
+        <span>Source-agnostic skeleton: one request, one spinner. No header, no badges — the source is not known yet.</span>
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="5" width="3" height="6" rx="1"/><rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="15" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 3.6v3.8a2 2 0 0 0 0-3.8z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span class="value">dune</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="filters">
+          <span class="filter-chip">Language: Any</span>
+          <span class="filter-chip">Author</span>
+        </div>
+
+        <div class="results">
+          <div class="rows" style="padding-top: 10px;">
+            <div class="row">
+              <div class="sk sk-cover"></div>
+              <div class="meta">
+                <div class="sk sk-line" style="width: 76%;"></div>
+                <div class="sk sk-line" style="width: 48%; height: 10px; margin-top: 8px;"></div>
+                <div class="sk sk-line" style="width: 22%; height: 9px; margin-top: 8px;"></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="sk sk-cover"></div>
+              <div class="meta">
+                <div class="sk sk-line" style="width: 62%;"></div>
+                <div class="sk sk-line" style="width: 40%; height: 10px; margin-top: 8px;"></div>
+                <div class="sk sk-line" style="width: 22%; height: 9px; margin-top: 8px;"></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="sk sk-cover"></div>
+              <div class="meta">
+                <div class="sk sk-line" style="width: 71%;"></div>
+                <div class="sk sk-line" style="width: 52%; height: 10px; margin-top: 8px;"></div>
+                <div class="sk sk-line" style="width: 22%; height: 9px; margin-top: 8px;"></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="sk sk-cover"></div>
+              <div class="meta">
+                <div class="sk sk-line" style="width: 55%;"></div>
+                <div class="sk sk-line" style="width: 44%; height: 10px; margin-top: 8px;"></div>
+                <div class="sk sk-line" style="width: 22%; height: 9px; margin-top: 8px;"></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="sk sk-cover"></div>
+              <div class="meta">
+                <div class="sk sk-line" style="width: 68%;"></div>
+                <div class="sk sk-line" style="width: 36%; height: 10px; margin-top: 8px;"></div>
+                <div class="sk sk-line" style="width: 22%; height: 9px; margin-top: 8px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 4 — No results (real EmptyState geometry)
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        4 · No results
+        <span>Names both catalogs, so the user knows the search was exhaustive. Renders the real EmptyState.</span>
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="5" width="3" height="6" rx="1"/><rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="15" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 3.6v3.8a2 2 0 0 0 0-3.8z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span class="value">qzxwv unknown title</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="filters">
+          <span class="filter-chip">Language: Any</span>
+          <span class="filter-chip">Author</span>
+        </div>
+
+        <!-- EmptyState is top-aligned, not centred: its flex-1 is inert inside
+             the block scroll container in BookSearch. Depicting reality. -->
+        <div class="empty">
+          <div class="icon-ring">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </div>
+          <h3>Book not found</h3>
+          <p>Nothing matched “qzxwv unknown title” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 5 — Scan → result came from Google Books
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        5 · Scan → Google Books result
+        <span>No new screen: the scanner unmounts, the ISBN lands in the search field, and the normal list renders.</span>
+      </div>
+      <div class="device">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="5" width="3" height="6" rx="1"/><rect x="9.2" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="15" height="7" rx="1.6" fill="currentColor"/><path d="M21.5 3.6v3.8a2 2 0 0 0 0-3.8z" fill="currentColor" opacity="0.5"/></svg>
+          </span>
+        </div>
+
+        <!-- BookSearch.handleIsbn() does setQuery(isbn) and closes the scanner.
+             The ISBN is just another query — same debounced path, same list. -->
+        <div class="modal-bar">
+          <div class="search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span class="value">9780441013593</span>
+          </div>
+          <button class="cancel-btn">Cancel</button>
+        </div>
+
+        <div class="filters">
+          <span class="filter-chip">Language: Any</span>
+          <span class="filter-chip">Author</span>
+        </div>
+
+        <div class="results">
+          <p class="group-header">Google Books <span class="count">· 1 result</span></p>
+          <div class="rows">
+            <div class="row">
+              <div class="cover-wrap">
+                <div class="cover"><div class="art" style="background: linear-gradient(150deg, #c2703a, #7b3f1d);">Dune</div></div>
+                <span class="badge">GB</span>
+              </div>
+              <div class="meta">
+                <p class="title">Dune</p>
+                <p class="author">Frank Herbert</p>
+                <p class="year">1965</p>
+              </div>
+              <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         BOARD 6 — Specs
+         ============================================================ -->
+    <div class="frame-wrap">
+      <div class="frame-label">
+        6 · Badge specs
+        <span>Anatomy at 4×, geometry, light-scheme check, and the hue variant that was rejected.</span>
+      </div>
+      <div class="spec">
+        <h3>Source badge</h3>
+
+        <div>
+          <h4>Anatomy — 4× zoom, over a dark and a light cover</h4>
+          <div class="zoom-row">
+            <div>
+              <div class="zoom dark-art"><span class="badge-lg">OL</span></div>
+              <p class="zoom-caption">OpenLibrary</p>
+            </div>
+            <div>
+              <div class="zoom light-art"><span class="badge-lg">GB</span></div>
+              <p class="zoom-caption">Google Books</p>
+            </div>
+          </div>
+          <p class="note" style="margin-top: 12px;">
+            The scrim is the whole design. Cover art is arbitrary — dark, light, busy, blank —
+            so the badge brings its own background and never depends on what it lands on.
+          </p>
+        </div>
+
+        <div>
+          <h4>Geometry</h4>
+          <table>
+            <tr><td>Size</td><td><code>h-4 min-w-6 px-1.5</code> — 16px tall, 24px min-width, 6px horizontal padding</td></tr>
+            <tr><td>Position</td><td>Cover top-right, <code>-top-1 -right-1</code> (4px) — overhangs the corner, so it never covers cover art the user is reading</td></tr>
+            <tr><td>Radius</td><td>6px (<code>rounded-md</code>) — the existing cover radius. No new radius.</td></tr>
+            <tr><td>Type</td><td>Sans 9px / 700 / <code>tracking-wider</code>, uppercase. Not mono: <code>font-mono</code> maps to Geist Mono, which has no advantage at two glyphs.</td></tr>
+            <tr><td>Scrim</td><td><code>bg-black/80</code> + <code>backdrop-blur-sm</code></td></tr>
+            <tr><td>Border</td><td><code>border-white/20</code> — separates the chip from a dark cover</td></tr>
+            <tr><td>Text</td><td><code>text-white</code> — 12.6:1 in the worst case (pure-white cover), higher on every darker one</td></tr>
+            <tr><td>Hit testing</td><td><code>pointer-events-none</code>; the row keeps its full 86px target</td></tr>
+            <tr><td>A11y</td><td><code>aria-hidden</code>; the group header announces the source once per group</td></tr>
+          </table>
+        </div>
+
+        <div>
+          <h4>Light scheme — the badge does not flip</h4>
+          <div class="light-check">
+            <div class="cover-lite">
+              <div class="cover"><div class="art" style="color: #3a3226;">Dune Messiah</div></div>
+              <span class="badge">OL</span>
+            </div>
+            <div class="lite-meta">
+              <p class="title">Dune Messiah</p>
+              <p class="author">Frank Herbert</p>
+            </div>
+            <p class="note" style="color: #6b6b73;">
+              The badge sits on cover art, not on the page canvas — and cover art is just as likely
+              to be light in dark mode as in light mode. So it stays white-on-dark in both schemes,
+              like the camera overlays in issue&nbsp;#59. Nothing to invert, nothing to test twice.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h4>Rejected — hue-coded badges</h4>
+          <div class="reject">
+            <div class="swatch">
+              <div class="cover"><div class="art" style="background: linear-gradient(150deg, #c2703a, #7b3f1d);">Dune</div></div>
+              <span class="badge hue-ol">OL</span>
+            </div>
+            <div class="swatch">
+              <div class="cover"><div class="art" style="background: linear-gradient(150deg, #2f5f9e, #16304f);">Dune</div></div>
+              <span class="badge hue-gb">GB</span>
+            </div>
+            <span class="seg"><span class="status-dot"></span>Reading</span>
+          </div>
+          <p class="note" style="margin-top: 12px;">
+            The obvious first pass — amber <code>--reading</code> for OL, blue <code>--accent</code> for GB —
+            fails twice. <strong>Amber is already the “Reading” status dot</strong> (right, from
+            <code>AddBookSheet</code>) — the sheet you land on by tapping one of these very rows. And
+            <strong>blue already means “tappable”</strong> everywhere in the app, including the
+            “Add to library” button under the badge in board&nbsp;5. Every other hue in the palette is
+            spoken for too: <code>--read</code> green, <code>--want</code> indigo, <code>--destructive</code> red.
+            There is no free hue — so the badge takes none, and the letters do the work.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
