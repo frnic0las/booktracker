@@ -12,6 +12,8 @@ function buildResult(overrides: Partial<BookSearchResult> = {}): BookSearchResul
     coverUrl: "https://books.google.com/books/content?id=zyTCAlFPjgYC&img=1",
     publishedDate: "1965-08-01",
     pageCount: 412,
+    isbn13: "9780441172719",
+    source: "googleBooks",
     ...overrides,
   };
 }

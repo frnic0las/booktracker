@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireUserId } from "@/lib/auth/session";
 import { GoogleBooksApiError, searchBooks } from "@/lib/google-books/client";
-import { mapVolumeToSearchResult } from "@/lib/books/mappers";
+import { searchOpenLibrary } from "@/lib/open-library/client";
+import { mapOpenLibraryDocToSearchResult, mapVolumeToSearchResult } from "@/lib/books/mappers";
 import type { BookSearchResult } from "@/types/books";
 
 export async function GET(request: NextRequest) {
@@ -23,6 +24,24 @@ export async function GET(request: NextRequest) {
 
   if (lang && !/^[a-z]{2}$/.test(lang)) {
     return NextResponse.json({ error: "Invalid query parameter: lang" }, { status: 400 });
+  }
+
+  try {
+    const openLibraryResponse = await searchOpenLibrary(q, { langRestrict: lang, author });
+    // Map first, then gate on the mapped count: a payload with docs that are
+    // all key-less (or a malformed body missing `docs`) must fall through to
+    // Google Books, not return an empty "no matches" result.
+    const results: BookSearchResult[] = (openLibraryResponse.docs ?? [])
+      .filter((doc) => doc.key)
+      .map(mapOpenLibraryDocToSearchResult);
+
+    if (results.length > 0) {
+      return NextResponse.json({ results });
+    }
+  } catch (error) {
+    // OpenLibrary is unreliable enough that its own outage must not break
+    // search — fall through to the Google Books path below.
+    console.error("Failed to search OpenLibrary, falling back to Google Books:", error);
   }
 
   try {
