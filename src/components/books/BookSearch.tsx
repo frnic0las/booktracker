@@ -7,7 +7,8 @@ import { AddBookSheet } from '@/components/books/AddBookSheet';
 import { BarcodeScanner } from '@/components/books/BarcodeScanner';
 import { IsbnEntrySheet } from '@/components/books/IsbnEntrySheet';
 import { SearchFilters, isValidLang } from '@/components/books/SearchFilters';
-import { SearchResultRow } from '@/components/books/SearchResultRow';
+import { SearchResultGroup } from '@/components/books/SearchResultGroup';
+import { SearchResultSkeleton } from '@/components/books/SearchResultSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -149,24 +150,27 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
             }
           />
         ) : loading ? (
-          <p className="py-16 text-center text-sm text-secondary">Searching…</p>
+          <SearchResultSkeleton />
         ) : error ? (
           <EmptyState title="Something went wrong" description="Couldn't reach the book catalogs. Try again." />
         ) : results.length === 0 ? (
           <EmptyState
-            title="No matches"
-            description={`No books found for "${debouncedQuery}". Check your spelling or try a different title or author.`}
+            title="Book not found"
+            description={`Nothing matched “${debouncedQuery}” in OpenLibrary or Google Books. Check the spelling, or try the ISBN.`}
           />
         ) : (
-          <div>
-            <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-tertiary">
-              {results[0].source === 'openLibrary' ? 'OpenLibrary' : 'Google Books'} · {results.length} results
-            </p>
-            <div className="px-4 pb-4">
-              {results.map((result) => (
-                <SearchResultRow key={result.id} result={result} onSelect={() => handleSelect(result)} />
+          <div className="pb-4">
+            {(['openLibrary', 'googleBooks'] as const)
+              .map((source) => ({ source, items: results.filter((r) => r.source === source) }))
+              .filter((group) => group.items.length > 0)
+              .map((group) => (
+                <SearchResultGroup
+                  key={group.source}
+                  source={group.source}
+                  results={group.items}
+                  onSelect={handleSelect}
+                />
               ))}
-            </div>
           </div>
         )}
       </div>

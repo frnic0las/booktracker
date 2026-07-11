@@ -2,6 +2,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BookSearch } from "./BookSearch";
+import type { BookSearchResult } from "@/types/books";
+
+function buildResult(overrides: Partial<BookSearchResult> = {}): BookSearchResult {
+  return {
+    id: "zyTCAlFPjgYC",
+    title: "Dune",
+    authors: ["Frank Herbert"],
+    coverUrl: "https://books.google.com/books/content?id=zyTCAlFPjgYC&img=1",
+    publishedDate: "1965-08-01",
+    pageCount: 412,
+    isbn13: "9780441172719",
+    source: "googleBooks",
+    ...overrides,
+  };
+}
 
 const push = vi.fn();
 
@@ -202,5 +217,104 @@ describe("BookSearch", () => {
       },
       { timeout: 2000 },
     );
+  });
+
+  it("renders the OpenLibrary group before the Google Books group regardless of API response order", async () => {
+    const googleBooksResult = buildResult({ id: "gb1", title: "Dune", source: "googleBooks" });
+    const openLibraryResult = buildResult({ id: "OL1W", title: "Dune Messiah", source: "openLibrary" });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [googleBooksResult, openLibraryResult] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("OpenLibrary")).toBeTruthy();
+        expect(screen.getByText("Google Books")).toBeTruthy();
+      },
+      { timeout: 1500 },
+    );
+
+    const openLibraryHeader = screen.getByText("OpenLibrary");
+    const googleBooksHeader = screen.getByText("Google Books");
+
+    // DOCUMENT_POSITION_FOLLOWING means googleBooksHeader comes after
+    // openLibraryHeader in the DOM, i.e. OpenLibrary is rendered first.
+    expect(
+      openLibraryHeader.compareDocumentPosition(googleBooksHeader) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("renders only the matching group header for a single-source response", async () => {
+    const openLibraryResult = buildResult({ id: "OL1W", title: "Dune", source: "openLibrary" });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [openLibraryResult] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(() => expect(screen.getByText("OpenLibrary")).toBeTruthy(), { timeout: 1500 });
+
+    expect(screen.queryByText("Google Books")).toBeNull();
+  });
+
+  it("shows the searching skeleton while loading, not the old 'Searching…' text", async () => {
+    let resolveFetch: (value: { ok: boolean; json: () => Promise<{ results: BookSearchResult[] }> }) => void =
+      () => {};
+    fetchMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(() => expect(screen.getByLabelText("Searching")).toBeTruthy(), { timeout: 1500 });
+
+    expect(screen.queryByText("Searching…")).toBeNull();
+
+    resolveFetch({ ok: true, json: async () => ({ results: [] }) });
+  });
+
+  it("shows 'Book not found' naming both catalogs when there are no results", async () => {
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Zzzzzz" } });
+
+    await waitFor(() => expect(screen.getByText("Book not found")).toBeTruthy(), { timeout: 1500 });
+
+    const description = screen.getByText(/OpenLibrary/);
+    expect(description.textContent).toContain("Google Books");
+  });
+
+  it("does not render OL/GB badge text on rows — the source is announced once via the group header", async () => {
+    const googleBooksResult = buildResult({ id: "gb1", title: "Dune", source: "googleBooks" });
+    const openLibraryResult = buildResult({ id: "OL1W", title: "Dune Messiah", source: "openLibrary" });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [openLibraryResult, googleBooksResult] }),
+    });
+
+    render(<BookSearch initialCategory="novel" from="novels" />);
+
+    fireEvent.change(screen.getByLabelText("Search books"), { target: { value: "Dune" } });
+
+    await waitFor(() => expect(screen.getByText("Dune Messiah")).toBeTruthy(), { timeout: 1500 });
+
+    expect(screen.queryByText("OL")).toBeNull();
+    expect(screen.queryByText("GB")).toBeNull();
   });
 });
