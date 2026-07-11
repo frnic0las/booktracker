@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 
+import { SourceBadge } from '@/components/books/SourceBadge';
 import type { BookSearchResult } from '@/types/books';
 
 export interface SearchResultRowProps {
@@ -23,18 +24,21 @@ export function SearchResultRow({ result, onSelect }: SearchResultRowProps): Rea
       onClick={onSelect}
       className="flex w-full items-center gap-3 border-b border-separator py-2.5 text-left last:border-b-0"
     >
-      {result.coverUrl ? (
-        <div className="relative aspect-[2/3] w-11 shrink-0 overflow-hidden rounded-md bg-surface-2 shadow-sm">
-          <Image src={result.coverUrl} alt="" fill sizes="44px" className="object-cover" />
-        </div>
-      ) : (
-        <div className="flex aspect-[2/3] w-11 shrink-0 items-center justify-center rounded-md border border-separator bg-gradient-to-br from-surface-2 to-surface-1 text-tertiary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
-            <path d="M18 6h2v14H6" />
-          </svg>
-        </div>
-      )}
+      <div className="relative w-11 shrink-0">
+        {result.coverUrl ? (
+          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-surface-2 shadow-sm">
+            <Image src={result.coverUrl} alt="" fill sizes="44px" className="object-cover" />
+          </div>
+        ) : (
+          <div className="flex aspect-[2/3] w-full items-center justify-center rounded-md border border-separator bg-gradient-to-br from-surface-2 to-surface-1 text-tertiary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
+              <path d="M18 6h2v14H6" />
+            </svg>
+          </div>
+        )}
+        <SourceBadge source={result.source} />
+      </div>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-[15px] font-semibold leading-tight text-primary">{result.title}</p>
         {author ? <p className="mt-0.5 truncate text-[13px] text-secondary">{author}</p> : null}

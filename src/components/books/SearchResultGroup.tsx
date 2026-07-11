@@ -9,7 +9,7 @@ export interface SearchResultGroupProps {
   onSelect: (result: BookSearchResult) => void;
 }
 
-const SOURCE_LABEL: Record<BookSource, string> = {
+export const SOURCE_LABEL: Record<BookSource, string> = {
   openLibrary: 'OpenLibrary',
   googleBooks: 'Google Books',
 };

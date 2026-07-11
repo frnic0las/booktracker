@@ -16,6 +16,11 @@ Open `mockup.html` in a browser. Six boards, 390px viewport:
 
 ---
 
+> **Status — superseded by issue #70.** Scope B shipped: the API now queries both catalogs in
+> parallel and merges them, so board 1 is the real screen and the two deferred pieces (the
+> `SourceBadge` and the `SearchResultRow` cover-wrapper restructure) are implemented. The two
+> open questions below are kept as the record of how that was decided.
+
 ## Two things to decide before any code is written
 
 ### 1. The API cannot produce "both sources" today
