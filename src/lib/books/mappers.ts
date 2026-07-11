@@ -1,6 +1,13 @@
 import { toHttps } from "@/lib/google-books/client";
+import { openLibraryCoverUrl } from "@/lib/open-library/client";
 import type { books, userBooks } from "@/lib/db/schema";
-import type { Book, BookSearchResult, GoogleBooksVolume, LibraryEntry } from "@/types/books";
+import type {
+  Book,
+  BookSearchResult,
+  GoogleBooksVolume,
+  LibraryEntry,
+  OpenLibraryDoc,
+} from "@/types/books";
 
 type BookRow = typeof books.$inferSelect;
 type UserBookRow = typeof userBooks.$inferSelect;
@@ -24,6 +31,9 @@ export function serializeAuthors(authors: string[]): string {
 
 export function mapVolumeToSearchResult(volume: GoogleBooksVolume): BookSearchResult {
   const info = volume.volumeInfo;
+  const isbn13 =
+    info.industryIdentifiers?.find((identifier) => identifier.type === "ISBN_13")?.identifier ??
+    null;
 
   return {
     id: volume.id,
@@ -32,6 +42,25 @@ export function mapVolumeToSearchResult(volume: GoogleBooksVolume): BookSearchRe
     coverUrl: info.imageLinks?.thumbnail ? toHttps(info.imageLinks.thumbnail) : null,
     publishedDate: info.publishedDate ?? null,
     pageCount: info.pageCount ?? null,
+    isbn13,
+    source: "googleBooks",
+  };
+}
+
+export function mapOpenLibraryDocToSearchResult(doc: OpenLibraryDoc): BookSearchResult {
+  // The response is an unvalidated cast, so guard against null (not just
+  // undefined) reaching the URL builder / String() and producing "null".
+  const isbn13 = doc.isbn?.find((value) => /^\d{13}$/.test(value)) ?? null;
+
+  return {
+    id: doc.key.replace(/^\/works\//, ""),
+    title: doc.title ?? "Untitled",
+    authors: doc.author_name ?? [],
+    coverUrl: doc.cover_i != null ? openLibraryCoverUrl(doc.cover_i) : null,
+    publishedDate: doc.first_publish_year != null ? String(doc.first_publish_year) : null,
+    pageCount: doc.number_of_pages_median ?? null,
+    isbn13,
+    source: "openLibrary",
   };
 }
 

@@ -30,6 +30,8 @@ export interface UserBook {
   finishedAt: Date | null;
 }
 
+export type BookSource = "openLibrary" | "googleBooks";
+
 export interface BookSearchResult {
   id: string;
   title: string;
@@ -37,6 +39,8 @@ export interface BookSearchResult {
   coverUrl: string | null;
   publishedDate: string | null;
   pageCount: number | null;
+  isbn13: string | null;
+  source: BookSource;
 }
 
 export interface LibraryEntry {
@@ -94,4 +98,26 @@ export interface GoogleBooksVolume {
 export interface GoogleBooksSearchResponse {
   totalItems: number;
   items?: GoogleBooksVolume[];
+}
+
+// --- OpenLibrary API response shapes ---
+// https://openlibrary.org/dev/docs/api/search
+
+export interface OpenLibraryDoc {
+  key: string;
+  title?: string;
+  author_name?: string[];
+  first_publish_year?: number;
+  number_of_pages_median?: number;
+  cover_i?: number;
+  isbn?: string[];
+}
+
+export interface OpenLibrarySearchResponse {
+  numFound: number;
+  docs: OpenLibraryDoc[];
+}
+
+export interface OpenLibraryWork {
+  description?: string | { type: string; value: string };
 }

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { books, userBooks } from "@/lib/db/schema";
-import type { GoogleBooksVolume } from "@/types/books";
+import type { GoogleBooksVolume, OpenLibraryDoc } from "@/types/books";
 
 import {
+  mapOpenLibraryDocToSearchResult,
   mapRowToLibraryEntry,
   mapVolumeToSearchResult,
   parseAuthors,
@@ -33,6 +34,18 @@ function buildVolume(overrides: Partial<GoogleBooksVolume> = {}): GoogleBooksVol
         { type: "ISBN_10", identifier: "0618968634" },
       ],
     },
+    ...overrides,
+  };
+}
+
+function buildOpenLibraryDoc(overrides: Partial<OpenLibraryDoc> = {}): OpenLibraryDoc {
+  return {
+    key: "/works/OL262758W",
+    title: "The Hobbit",
+    author_name: ["J.R.R. Tolkien"],
+    first_publish_year: 1937,
+    number_of_pages_median: 310,
+    cover_i: 6979861,
     ...overrides,
   };
 }
@@ -120,6 +133,8 @@ describe("books mappers", () => {
         coverUrl: "https://books.google.com/books/content?id=zyTCAlFPjgYC&printsec=frontcover&img=1&zoom=1",
         publishedDate: "1937-09-21",
         pageCount: 310,
+        isbn13: "9780618968633",
+        source: "googleBooks",
       });
     });
 
@@ -133,7 +148,112 @@ describe("books mappers", () => {
         coverUrl: null,
         publishedDate: null,
         pageCount: null,
+        isbn13: null,
+        source: "googleBooks",
       });
+    });
+
+    it("extracts isbn13 from the ISBN_13 industry identifier", () => {
+      const volume = buildVolume({
+        volumeInfo: {
+          ...buildVolume().volumeInfo,
+          industryIdentifiers: [
+            { type: "ISBN_10", identifier: "0618968634" },
+            { type: "ISBN_13", identifier: "9780618968633" },
+          ],
+        },
+      });
+
+      expect(mapVolumeToSearchResult(volume).isbn13).toBe("9780618968633");
+    });
+
+    it("returns isbn13 null when no ISBN_13 identifier is present", () => {
+      const volume = buildVolume({
+        volumeInfo: {
+          ...buildVolume().volumeInfo,
+          industryIdentifiers: [{ type: "ISBN_10", identifier: "0618968634" }],
+        },
+      });
+
+      expect(mapVolumeToSearchResult(volume).isbn13).toBeNull();
+    });
+
+    it("returns isbn13 null when industryIdentifiers is absent", () => {
+      const volume = buildVolume({
+        volumeInfo: { ...buildVolume().volumeInfo, industryIdentifiers: undefined },
+      });
+
+      expect(mapVolumeToSearchResult(volume).isbn13).toBeNull();
+    });
+  });
+
+  describe("mapOpenLibraryDocToSearchResult", () => {
+    it("maps a full doc to a search result", () => {
+      const doc = buildOpenLibraryDoc({ isbn: ["0618968634", "9780618968633"] });
+
+      expect(mapOpenLibraryDocToSearchResult(doc)).toEqual({
+        id: "OL262758W",
+        title: "The Hobbit",
+        authors: ["J.R.R. Tolkien"],
+        coverUrl: "https://covers.openlibrary.org/b/id/6979861-M.jpg",
+        publishedDate: "1937",
+        pageCount: 310,
+        isbn13: "9780618968633",
+        source: "openLibrary",
+      });
+    });
+
+    it("strips the /works/ prefix from key", () => {
+      const doc = buildOpenLibraryDoc({ key: "/works/OL45804W" });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).id).toBe("OL45804W");
+    });
+
+    it("falls back to defaults when optional fields are absent", () => {
+      const doc: OpenLibraryDoc = { key: "/works/OL262758W" };
+
+      expect(mapOpenLibraryDocToSearchResult(doc)).toEqual({
+        id: "OL262758W",
+        title: "Untitled",
+        authors: [],
+        coverUrl: null,
+        publishedDate: null,
+        pageCount: null,
+        isbn13: null,
+        source: "openLibrary",
+      });
+    });
+
+    it("picks the 13-digit entry from doc.isbn when it mixes ISBN-10 and ISBN-13 values", () => {
+      const doc = buildOpenLibraryDoc({ isbn: ["0618968634", "9780618968633"] });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).isbn13).toBe("9780618968633");
+    });
+
+    it("returns isbn13 null when doc.isbn has no 13-digit value", () => {
+      const doc = buildOpenLibraryDoc({ isbn: ["0618968634"] });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).isbn13).toBeNull();
+    });
+
+    it("returns isbn13 null when doc.isbn is absent", () => {
+      const doc = buildOpenLibraryDoc({ isbn: undefined });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).isbn13).toBeNull();
+    });
+
+    it("yields coverUrl null (not the string 'null') when cover_i is null in an unvalidated payload", () => {
+      const doc = buildOpenLibraryDoc({ cover_i: null as unknown as number | undefined });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).coverUrl).toBeNull();
+    });
+
+    it("yields publishedDate null (not the string 'null') when first_publish_year is null in an unvalidated payload", () => {
+      const doc = buildOpenLibraryDoc({
+        first_publish_year: null as unknown as number | undefined,
+      });
+
+      expect(mapOpenLibraryDocToSearchResult(doc).publishedDate).toBeNull();
     });
   });
 

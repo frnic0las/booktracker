@@ -82,7 +82,7 @@ export function AddBookSheet({
     setError(null);
 
     try {
-      const outcome = await addBook(result.id, category, status);
+      const outcome = await addBook(result, category, status);
 
       if (!outcome.success) {
         setError(outcome.error);

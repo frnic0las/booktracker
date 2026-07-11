@@ -5,7 +5,8 @@ import { requireUserId } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { books, userBooks } from "@/lib/db/schema";
 import { GoogleBooksApiError, getBookById } from "@/lib/google-books/client";
-import type { GoogleBooksVolume } from "@/types/books";
+import { getOpenLibraryDescription } from "@/lib/open-library/client";
+import type { BookSearchResult, GoogleBooksVolume } from "@/types/books";
 
 import {
   abandonBook,
@@ -41,6 +42,10 @@ vi.mock("@/lib/google-books/client", () => ({
       this.name = "GoogleBooksApiError";
     }
   },
+}));
+
+vi.mock("@/lib/open-library/client", () => ({
+  getOpenLibraryDescription: vi.fn(),
 }));
 
 type BookRow = typeof books.$inferSelect;
@@ -131,6 +136,20 @@ function buildUserBookRow(overrides: Partial<UserBookRow> = {}): UserBookRow {
   };
 }
 
+function buildSearchResult(overrides: Partial<BookSearchResult> = {}): BookSearchResult {
+  return {
+    id: "zyTCAlFPjgYC",
+    title: "The Hobbit",
+    authors: ["J.R.R. Tolkien"],
+    coverUrl: "https://books.google.com/books/content?id=zyTCAlFPjgYC&img=1",
+    publishedDate: "1937-09-21",
+    pageCount: 310,
+    isbn13: null,
+    source: "googleBooks",
+    ...overrides,
+  };
+}
+
 function buildVolume(overrides: Partial<GoogleBooksVolume> = {}): GoogleBooksVolume {
   return {
     id: "zyTCAlFPjgYC",
@@ -164,16 +183,16 @@ describe("actions/books", () => {
     it("returns Unauthorized when there is no session", async () => {
       vi.mocked(requireUserId).mockResolvedValue(null);
 
-      const result = await addBook(googleBooksId, "novel", "want_to_read");
+      const result = await addBook(buildSearchResult(), "novel", "want_to_read");
 
       expect(result).toEqual({ success: false, error: "Unauthorized" });
       expect(mockedDb.select).not.toHaveBeenCalled();
     });
 
-    it("returns a validation error for an empty googleBooksId", async () => {
+    it("returns a validation error for an empty id", async () => {
       vi.mocked(requireUserId).mockResolvedValue("user-1");
 
-      const result = await addBook("", "novel", "want_to_read");
+      const result = await addBook(buildSearchResult({ id: "" }), "novel", "want_to_read");
 
       expect(result.success).toBe(false);
       expect(mockedDb.select).not.toHaveBeenCalled();
@@ -185,7 +204,7 @@ describe("actions/books", () => {
       const existingUserBook = buildUserBookRow({ userId: "user-1", bookId: bookRow.id });
       queueSelect([bookRow], [existingUserBook]);
 
-      const result = await addBook(googleBooksId, "novel", "want_to_read");
+      const result = await addBook(buildSearchResult(), "novel", "want_to_read");
 
       expect(result).toEqual({ success: false, error: "Book already in library" });
       expect(getBookById).not.toHaveBeenCalled();
@@ -201,7 +220,7 @@ describe("actions/books", () => {
         .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
         .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
 
-      const result = await addBook(googleBooksId, "novel", "reading");
+      const result = await addBook(buildSearchResult(), "novel", "reading");
 
       expect(getBookById).toHaveBeenCalledWith(googleBooksId);
       expect(mockedDb.insert).toHaveBeenNthCalledWith(1, books);
@@ -247,13 +266,225 @@ describe("actions/books", () => {
         new GoogleBooksApiError("Failed to fetch Google Books volume zyTCAlFPjgYC", 404),
       );
 
-      const result = await addBook(googleBooksId, "novel", "want_to_read");
+      const result = await addBook(buildSearchResult(), "novel", "want_to_read");
 
       expect(result).toEqual({
         success: false,
         error: "Failed to fetch Google Books volume zyTCAlFPjgYC",
       });
       expect(mockedDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for a non-https coverUrl", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({ coverUrl: "http://covers.openlibrary.org/b/id/6979861-M.jpg" }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for a coverUrl host not on the allowlist", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({ coverUrl: "https://evil.example.com/cover.jpg" }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for a pageCount below 1", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({ pageCount: -1 }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for a pageCount above the 50,000 cap", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({ pageCount: 999_999 }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for an isbn13 that is not 13 digits", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({ isbn13: "12345" }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for an OpenLibrary id that is not a valid OL...W work id", async () => {
+      vi.mocked(requireUserId).mockResolvedValue("user-1");
+
+      const result = await addBook(
+        buildSearchResult({
+          source: "openLibrary",
+          id: "garbage",
+          coverUrl: "https://covers.openlibrary.org/b/id/6979861-M.jpg",
+        }),
+        "novel",
+        "want_to_read",
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockedDb.select).not.toHaveBeenCalled();
+    });
+
+    describe("OpenLibrary source", () => {
+      const openLibraryResult = buildSearchResult({
+        id: "OL262758W",
+        title: "The Hobbit",
+        authors: ["J.R.R. Tolkien"],
+        coverUrl: "https://covers.openlibrary.org/b/id/6979861-M.jpg",
+        publishedDate: "1937",
+        pageCount: 310,
+        isbn13: null,
+        source: "openLibrary",
+      });
+
+      it("hydrates from the payload, prefixes google_books_id with 'ol:', stores isbn13 null, and never calls getBookById", async () => {
+        vi.mocked(requireUserId).mockResolvedValue("user-1");
+        queueSelect([], []);
+        vi.mocked(getOpenLibraryDescription).mockResolvedValue(
+          "A hobbit goes on an unexpected journey.",
+        );
+        const insertValues = mockInsert();
+        vi.spyOn(crypto, "randomUUID")
+          .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
+          .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
+
+        const result = await addBook(openLibraryResult, "novel", "want_to_read");
+
+        expect(getOpenLibraryDescription).toHaveBeenCalledWith("OL262758W");
+        expect(getBookById).not.toHaveBeenCalled();
+        expect(mockedDb.insert).toHaveBeenNthCalledWith(1, books);
+        expect(insertValues).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({
+            id: "11111111-1111-1111-1111-111111111111",
+            googleBooksId: "ol:OL262758W",
+            title: "The Hobbit",
+            authors: '["J.R.R. Tolkien"]',
+            description: "A hobbit goes on an unexpected journey.",
+            thumbnail: "https://covers.openlibrary.org/b/id/6979861-M.jpg",
+            publishedDate: "1937",
+            pageCount: 310,
+            isbn13: null,
+          }),
+        );
+
+        expect(result).toEqual({
+          success: true,
+          data: { userBookId: "22222222-2222-2222-2222-222222222222" },
+        });
+      });
+
+      it("stores a null description when getOpenLibraryDescription resolves null", async () => {
+        vi.mocked(requireUserId).mockResolvedValue("user-1");
+        queueSelect([], []);
+        vi.mocked(getOpenLibraryDescription).mockResolvedValue(null);
+        const insertValues = mockInsert();
+        vi.spyOn(crypto, "randomUUID")
+          .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
+          .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
+
+        await addBook(openLibraryResult, "novel", "want_to_read");
+
+        expect(insertValues).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({ description: null }),
+        );
+      });
+
+      it("looks up an existing book by its 'ol:' prefixed id and does not re-insert it", async () => {
+        vi.mocked(requireUserId).mockResolvedValue("user-1");
+        const bookRow = buildBookRow({ id: "book-1", googleBooksId: "ol:OL262758W", isbn13: null });
+        queueSelect([bookRow], []);
+        mockInsert();
+
+        await addBook(openLibraryResult, "novel", "want_to_read");
+
+        expect(getOpenLibraryDescription).not.toHaveBeenCalled();
+        expect(mockedDb.insert).toHaveBeenCalledTimes(1);
+        expect(mockedDb.insert).not.toHaveBeenCalledWith(books);
+      });
+
+      it("persists the result's isbn13 onto the inserted books row when no cached row is matched", async () => {
+        vi.mocked(requireUserId).mockResolvedValue("user-1");
+        // No row matches the 'ol:' prefixed google_books_id, and none matches
+        // the isbn13 either, so a fresh row is inserted with isbn13 carried
+        // straight through from the search result.
+        queueSelect([], [], []);
+        vi.mocked(getOpenLibraryDescription).mockResolvedValue(
+          "A hobbit goes on an unexpected journey.",
+        );
+        const insertValues = mockInsert();
+        vi.spyOn(crypto, "randomUUID")
+          .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
+          .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
+
+        await addBook(
+          { ...openLibraryResult, isbn13: "9780618968633" },
+          "novel",
+          "want_to_read",
+        );
+
+        expect(insertValues).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({ isbn13: "9780618968633" }),
+        );
+      });
+
+      it("reuses an existing books row matched by isbn13 instead of inserting a duplicate when the same book is added from OpenLibrary after Google Books", async () => {
+        vi.mocked(requireUserId).mockResolvedValue("user-1");
+        // Cached under a bare Google Books id from a prior Google Books add.
+        const bookRow = buildBookRow({
+          id: "book-1",
+          googleBooksId: "zyTCAlFPjgYC",
+          isbn13: "9780618968633",
+        });
+        const existingUserBook = buildUserBookRow({ userId: "user-1", bookId: bookRow.id });
+        // 1st select: by 'ol:OL262758W' -> miss. 2nd select: by isbn13 -> hit
+        // the Google-sourced row. 3rd select: userBooks lookup -> already there.
+        queueSelect([], [bookRow], [existingUserBook]);
+
+        const result = await addBook(
+          { ...openLibraryResult, isbn13: "9780618968633" },
+          "novel",
+          "want_to_read",
+        );
+
+        expect(result).toEqual({ success: false, error: "Book already in library" });
+        expect(getOpenLibraryDescription).not.toHaveBeenCalled();
+        expect(mockedDb.insert).not.toHaveBeenCalled();
+      });
     });
   });
 

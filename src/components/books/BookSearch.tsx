@@ -151,7 +151,7 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
         ) : loading ? (
           <p className="py-16 text-center text-sm text-secondary">Searching…</p>
         ) : error ? (
-          <EmptyState title="Something went wrong" description="Couldn't reach Google Books. Try again." />
+          <EmptyState title="Something went wrong" description="Couldn't reach the book catalogs. Try again." />
         ) : results.length === 0 ? (
           <EmptyState
             title="No matches"
@@ -160,7 +160,7 @@ export function BookSearch({ initialCategory, from }: BookSearchProps): React.JS
         ) : (
           <div>
             <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-tertiary">
-              Google Books · {results.length} results
+              {results[0].source === 'openLibrary' ? 'OpenLibrary' : 'Google Books'} · {results.length} results
             </p>
             <div className="px-4 pb-4">
               {results.map((result) => (
