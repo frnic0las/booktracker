@@ -3,9 +3,9 @@
 ## Project Overview
 
 BookTracker is a mobile-first PWA to manage a personal book library: track reading progress,
-search and add books, organize into custom lists. Inspired by Goodreads, stripped to essentials.
+search and add books, organize them into Novels and Non-Fiction. Inspired by Goodreads, stripped to essentials.
 Single-user with authentication. Deployed on Vercel, data in Turso (libSQL).
-Repository: `frnic0las/booktracker` — License: AGPL-3.0
+Repository: `frnic0las/booktracker` — License: MIT
 
 ## Tech Stack
 
@@ -41,7 +41,7 @@ Repository: `frnic0las/booktracker` — License: AGPL-3.0
 
 ## API Conventions
 
-- Route Handlers (`src/app/api/`) for Google Books proxy calls and complex operations
+- Route Handlers (`src/app/api/`) for book API proxy calls (OpenLibrary, Google Books) and complex operations
 - Server Actions for Turso mutations (update reading status, add to library)
 - Turso client: `createClient()` from `@libsql/client` — single instance in `src/lib/db/`
 - Drizzle ORM for schema definition and type-safe queries
@@ -92,23 +92,24 @@ booktracker/
 │   │   │   ├── layout.tsx    # App shell: scrollable content + bottom nav
 │   │   │   ├── novels/       # Novels library (category = novel)
 │   │   │   ├── non-fiction/  # Non-Fiction library (category = non_fiction)
-│   │   │   ├── search/       # Search Google Books + add
+│   │   │   ├── search/       # Search OpenLibrary + Google Books + add
 │   │   │   └── account/      # Stats + settings
 │   │   ├── api/
-│   │   │   └── books/    # Google Books proxy (search, details)
+│   │   │   └── books/    # Library entries + OpenLibrary/Google Books search proxy
 │   │   ├── layout.tsx
 │   │   └── page.tsx      # Redirect to /novels
 │   ├── components/
-│   │   ├── ui/           # Button, Modal, SearchBar, BottomNav, Sheet
+│   │   ├── ui/           # BottomNav, SearchBar, SegmentedControl, Sheet, SubTabs, EmptyState
 │   │   ├── books/        # BookCard, BookDetail, BookSearch
-│   │   └── library/      # LibraryList, ReadingProgress, ListCard
-│   ├── hooks/            # useDebounce, useInfiniteScroll, etc.
+│   │   └── library/      # LibraryPage
+│   ├── hooks/            # useDebounce
 │   ├── lib/
 │   │   ├── db/           # Turso client, Drizzle schema, migrations
 │   │   ├── auth/         # Auth.js config, providers, helpers
 │   │   ├── google-books/ # Google Books client, types, helpers
+│   │   ├── open-library/ # OpenLibrary client
 │   │   └── utils.ts
-│   ├── actions/          # Server Actions (add book, update status, manage lists)
+│   ├── actions/          # Server Actions (login, add book, update status/category/rating, remove)
 │   ├── types/            # Shared TypeScript interfaces
 │   │   └── next-auth.d.ts
 │   └── test/
@@ -125,6 +126,7 @@ booktracker/
 │   ├── manifest.json
 │   └── icons/
 ├── CLAUDE.md
+├── LICENSE
 ├── README.md
 ├── .gitignore
 ├── .env.local.example
@@ -178,7 +180,7 @@ VERCEL_EMAIL=                   # Must match git config user.email
 - **DB push migration**: `pnpm db:push`
 - **DB studio**: `pnpm db:studio`
 - **DB seed**: `pnpm db:seed`
-- **Local DB**: `turso dev --db-file local.db`
+- **Local DB**: `file:local.db` (optional server: `turso dev --db-file local.db`)
 - **Deploy prod**: `./push-prod.sh` (reads `.env.local.prod`)
 
 ## Behavioral Guidelines
