@@ -5,7 +5,7 @@
 BookTracker is a mobile-first PWA to manage a personal book library: track reading progress,
 search and add books, organize into custom lists. Inspired by Goodreads, stripped to essentials.
 Single-user with authentication. Deployed on Vercel, data in Turso (libSQL).
-Repository: `frnic0las/booktracker` — License: AGPL-3.0
+Repository: `frnic0las/booktracker` — License: MIT
 
 ## Tech Stack
 
@@ -99,10 +99,10 @@ booktracker/
 │   │   ├── layout.tsx
 │   │   └── page.tsx      # Redirect to /novels
 │   ├── components/
-│   │   ├── ui/           # Button, Modal, SearchBar, BottomNav, Sheet
+│   │   ├── ui/           # BottomNav, SearchBar, SegmentedControl, Sheet, SubTabs, EmptyState
 │   │   ├── books/        # BookCard, BookDetail, BookSearch
-│   │   └── library/      # LibraryList, ReadingProgress, ListCard
-│   ├── hooks/            # useDebounce, useInfiniteScroll, etc.
+│   │   └── library/      # LibraryPage
+│   ├── hooks/            # useDebounce
 │   ├── lib/
 │   │   ├── db/           # Turso client, Drizzle schema, migrations
 │   │   ├── auth/         # Auth.js config, providers, helpers
@@ -125,6 +125,7 @@ booktracker/
 │   ├── manifest.json
 │   └── icons/
 ├── CLAUDE.md
+├── LICENSE
 ├── README.md
 ├── .gitignore
 ├── .env.local.example
