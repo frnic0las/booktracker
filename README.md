@@ -27,7 +27,8 @@ iOS-native aesthetic and targets phone viewports (375–430px).
 
 ## Getting Started
 
-Prerequisites: Node.js (LTS), pnpm and the [Turso CLI](https://docs.turso.tech/cli/introduction).
+Prerequisites: Node.js (LTS) and pnpm. The [Turso CLI](https://docs.turso.tech/cli/introduction)
+is optional locally.
 
 ```bash
 # 1. Clone and install
@@ -38,31 +39,30 @@ pnpm install
 # 2. Configure environment
 cp .env.local.example .env.local
 # Edit .env.local:
-#   TURSO_DATABASE_URL=http://127.0.0.1:8080   (the local turso dev server)
+#   TURSO_DATABASE_URL=file:local.db           (local SQLite file)
 #   TURSO_AUTH_TOKEN=                          (leave empty locally)
 #   GOOGLE_BOOKS_API_KEY=<your key>            (see below)
 #   AUTH_SECRET=<output of: openssl rand -base64 32>
 #   AUTH_URL=http://localhost:3000
 
-# 3. Start the local database (in a separate terminal, keep it running)
-turso dev --db-file local.db
-
-# 4. Apply migrations
+# 3. Apply migrations (creates local.db)
 # drizzle-kit does not load .env.local by itself, so pass the URL explicitly:
-TURSO_DATABASE_URL=http://127.0.0.1:8080 pnpm db:push
+TURSO_DATABASE_URL=file:local.db pnpm db:push
 
-# 5. Create the local user
+# 4. Create the local user
 # Defaults to test@booktracker.app / booktracker unless SEED_USER_EMAIL and
 # SEED_USER_PASSWORD are set in .env.local. These defaults are for local
 # development only; never use them in production.
 pnpm db:seed
 
-# 6. Run the app on http://localhost:3000
+# 5. Run the app on http://localhost:3000
 pnpm dev
 ```
 
-If you prefer not to run a local server, `TURSO_DATABASE_URL=file:local.db` also works: the libSQL
-client then reads and writes the SQLite file directly.
+With `file:local.db`, the libSQL client reads and writes the SQLite file directly, so no database
+server is needed. Optionally, `turso dev --db-file local.db` serves the same file over HTTP on
+`http://127.0.0.1:8080`; use that URL for `TURSO_DATABASE_URL` (and for `pnpm db:push`) while it
+runs.
 
 **Google Books API key**: in the [Google Cloud Console](https://console.cloud.google.com/), create
 (or select) a project, enable the **Books API** under *APIs & Services → Library*, then create an
@@ -91,7 +91,7 @@ Other useful scripts: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`,
    | `TURSO_AUTH_TOKEN` | the token created above |
    | `GOOGLE_BOOKS_API_KEY` | your Google Books API key |
    | `AUTH_SECRET` | a new secret from `openssl rand -base64 32` |
-   | `AUTH_URL` | `https://<your-app>.vercel.app` |
+   | `AUTH_URL` | optional: `https://<your-app>.vercel.app` (the app sets `trustHost`, so Auth.js uses the forwarded host) |
 
 3. **Push the migrations** to the production database:
 
